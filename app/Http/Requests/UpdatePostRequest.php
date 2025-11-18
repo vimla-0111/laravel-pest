@@ -23,7 +23,7 @@ class UpdatePostRequest extends FormRequest
     {
         return [
             'title' => 'sometimes|string|max:255',
-            'body' => 'sometimes|string|max:2000',
+            'content' => 'sometimes|string|max:2000',
         ];
     }
 }

@@ -30,7 +30,7 @@ Route::middleware('auth')->group(function () {
 // });
 
 Route::resource('posts', PostController::class)
-     ->middleware('auth');
+     ->middleware('auth:web');
 
 
 
