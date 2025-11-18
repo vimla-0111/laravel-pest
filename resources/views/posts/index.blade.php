@@ -53,14 +53,14 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ Str::limit($post->content, 50) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $post->published_at ?? '-' }}</td>
+                                        {{ $post->formatted_published_at ?? '-' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <a href="{{ route('posts.edit', $post) }}"
-                                            class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</a>
+                                            class="text-indigo-600 hover:text-indigo-900 mr-4 edit-btn">Edit</a>
 
                                         <div x-data="{ open: false }" class="inline-block">
                                             <button @click="open = true"
-                                                class="text-red-600 hover:text-red-900">Delete</button>
+                                                class="text-red-600 hover:text-red-900 delete-btn">Delete</button>
 
                                             <div x-show="open" @click.away="open = false"
                                                 class="fixed z-10 inset-0 overflow-y-auto" style="display: none;">
@@ -88,7 +88,7 @@
                                                                 method="POST">
                                                                 @csrf
                                                                 @method('DELETE')
-                                                                <button typeG="submit"
+                                                                <button typeG="submit" id="delete-confirm-btn"
                                                                     class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">
                                                                     Delete
                                                                 </button>

@@ -5,10 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Models\Post;
+use App\Services\PostService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
+
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -38,10 +37,12 @@ class PostController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StorePostRequest $request): RedirectResponse
+    public function store(StorePostRequest $request, PostService $postService): RedirectResponse
     {
+        info('storing the post');
         // Create the post and link it to the authenticated user
-        Auth::user()->posts()->create($request->validated());
+        $postService->createPost(auth()->user(), $request->validated());
+        // Auth::user()->posts()->create($request->validated());
 
         return redirect()->route('posts.index')
             ->with('success', 'Post created successfully!');
@@ -50,11 +51,11 @@ class PostController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Post $post): View
-    {
-        // Not typically used in a simple CRUD, but good to have.
-        return view('posts.show', compact('post'));
-    }
+    // public function show(Post $post): View
+    // {
+    // Not typically used in a simple CRUD, but good to have.
+    // return view('posts.show', compact('post'));
+    // }
 
     /**
      * Show the form for editing the specified resource.

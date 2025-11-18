@@ -26,10 +26,10 @@ class PostFactory extends Factory
         ];
     }
 
-    // public function createdBy($userId): static
-    // {
-    //     return $this->state(fn(array $attributes) => [
-    //         'created_by' => $userId,
-    //     ]);
-    // }
+    public function createdBy($userId): static
+    {
+        return $this->state(fn(array $attributes) => [
+            'created_by' => $userId,
+        ]);
+    }
 }

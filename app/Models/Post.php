@@ -35,4 +35,9 @@ class Post extends Model
 
         // return $this->published_at ? date_create($this->published_at)->format('d/m/Y') : null;
     }
+
+    public function scopePublished($query)
+    {
+        return $query->whereNotNull('published_at');
+    }
 }

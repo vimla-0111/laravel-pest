@@ -11,10 +11,16 @@
 |
 */
 
+use App\Models\User;
+
 pest()->extend(Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
+    
+uses(Tests\TestCase::class)
+    ->in('Unit');
 
+// pest()->browser()->timeout(10000); // 10 sec timeout for browser test cases
 /*
 |--------------------------------------------------------------------------
 | Expectations
@@ -28,6 +34,13 @@ pest()->extend(Tests\TestCase::class)
 
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);
+});
+
+// custom expectation helper which redirect to login when user is unauthenticated
+expect()->extend('redirectToLogin', function () {
+    $this->assertStatus(302)
+        ->assertRedirect(route('login'));
+    return $this;
 });
 
 /*
@@ -44,4 +57,9 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function fakeUser(): User     // common helper fn for available to all test files
+{
+    return User::factory()->create();
 }
