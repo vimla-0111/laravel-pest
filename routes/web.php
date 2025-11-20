@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,9 @@ Route::middleware('auth')->group(function () {
 Route::resource('posts', PostController::class)
      ->middleware('auth:web');
 
-
+Route::middleware('auth')->group(function () {
+    Route::get('/chat', [MessageController::class, 'index'])->name('chat');
+    Route::post('/chat', [MessageController::class, 'store']);
+});
 
 require __DIR__ . '/auth.php';
