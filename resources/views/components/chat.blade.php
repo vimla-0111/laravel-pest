@@ -1,21 +1,14 @@
-@props(['conversationId', 'currentUserId'])
+{{-- @props(['conversationId', 'currentUserId'])
 
 <div x-data="chatComponent(conversationId)" x-init="initEcho();
-fetchMessages();"
-    @conversation-id.window="
-        // Re-initialize when the parent component changes the conversation ID
-        if ($event.detail.id !== conversationId) {
-            conversationId = $event.detail.id;
-            initEcho();
-            fetchMessages();
-        }"
+fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
     class="flex flex-col h-full">
     <div x-ref="scrollBox" class="flex-grow p-4 space-y-3 overflow-y-auto bg-gray-50">
         <template x-for="msg in messages" :key="msg.id">
             <div class="flex" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
                 <div class="max-w-xs p-3 rounded-lg shadow"
                     :class="msg.sender_id === currentUserId ? 'bg-indigo-500 text-white' : 'bg-white text-gray-800'">
-                    <p x-text="msg.body"></p>
+                    <p x-text="msg.message"></p>
                     <span class="text-xs opacity-75 mt-1 block text-right"
                         x-text="new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})">
                     </span>
@@ -29,63 +22,174 @@ fetchMessages();"
             <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
                 placeholder="Type your message..."
                 class="flex-grow border border-gray-300 rounded-l-lg p-3 focus:ring-indigo-500 focus:border-indigo-500"
-                :disabled="!conversationId" >
+                :disabled="!conversationId">
             <button @click="sendMessage" :disabled="!conversationId || newMessage.trim() === ''"
                 class="bg-indigo-600 text-white px-6 rounded-r-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150">
                 Send
             </button>
         </div>
     </div>
-</div>
+</div> --}}
 
+
+
+
+
+
+@props(['conversationId', 'currentUserId'])
+
+<div x-data="chatComponent(conversationId)" @conversation-id.window="handleConversationChange($event.detail.id)"
+    class="flex flex-col h-full w-full bg-white">
+    <div x-show="isTyping" class="text-xs text-gray-500 italic p-2">
+        <span x-text="typingUser"></span> is typing...
+    </div>
+    <div x-ref="scrollBox" class="flex-1 overflow-y-auto p-4 min-h-0 space-y-4 bg-gray-50">
+        <div x-show="isLoading" class="flex justify-center items-center h-full text-gray-400">
+            Loading messages...
+        </div>
+
+        <div x-show="!isLoading && messages.length === 0"
+            class="flex justify-center items-center h-full text-gray-400 text-sm">
+            No messages yet. Say hello!
+        </div>
+        <template x-for="msg in messages" :key="msg.id">
+            <div class="flex w-full" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
+                <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
+                    :class="msg.sender_id === currentUserId ?
+                        'bg-indigo-600 text-white rounded-br-none' :
+                        'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
+
+                    <p x-text="msg.message" class="leading-relaxed"></p>
+
+                    <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
+                    </span>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
+        <div class="relative flex items-center">
+            <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
+                @keydown.debounce.1000ms="startTyping" placeholder="Type your message..."
+                class="w-full bg-gray-100 border-0 rounded-full py-3 pl-5 pr-12 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                :disabled="!conversationId || isLoading">
+
+            <button @click="sendMessage" :disabled="!conversationId || newMessage.trim() === ''"
+                class="absolute right-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors">
+                <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
 <script>
-    function chatComponent(initialConversationId) {
+    function chatComponent(initialId) {
         return {
-            conversationId: initialConversationId,
+            conversationId: initialId,
             messages: [],
             newMessage: '',
+            isLoading: false,
             channel: null,
+            typingTimeout: null,
+            isTyping: false,
+            typingUser: '',
 
-            // Re-initializes the WebSocket connection when the room changes
+            // init run every time the conversationId changes when selecting a new user because chat component flushed when conversationId is set to null and re iniatlize when conversationId is set to new value otherwise init called only once when component initializes
+            init() {
+                console.log('init conversation');
+                if (this.conversationId) {
+                    this.setupConversation();
+                }
+            },
+
+            // called when parent's custom event triggered
+            handleConversationChange(newId) {
+                console.log('handle conversation');
+
+                if (newId !== this.conversationId) {
+                    this.conversationId = newId;
+                    this.setupConversation();
+                }
+            },
+
+            setupConversation() {
+                this.messages = []; // Clear old messages immediately
+                this.isLoading = true;
+                this.initEcho();
+                this.fetchMessages();
+            },
+
             initEcho() {
-                if (!this.conversationId) return;
+                console.log('init echo');
 
-                // 1. Leave any previous channels
+                // Leave previous channel if exists
+                // only required when update component by triggering event
+                // when component initialize every time the conversation changed then it create new channel
                 if (this.channel) {
+                    console.log('leave ');
                     window.Echo.leave(`chat.${this.channel.name.split('.')[1]}`);
                 }
 
-                // 2. Connect to the new Private Channel
+                // Join new channel
                 this.channel = window.Echo.private(`chat.${this.conversationId}`)
-                    .listen('MessageSent', (e) => {
+                    .listen('.chat.message.sent', (e) => {
                         this.messages.push(e);
                         this.scrollToBottom();
+                    }).listenForWhisper('typing', (e) => {
+                        this.typingUser = e.name;
+                        this.isTyping = true;
+
+                        // Clear any existing timeout
+                        clearTimeout(this.typingTimeout);
+
+                        // Set a new timeout to hide the indicator after 3 seconds
+                        this.typingTimeout = setTimeout(() => {
+                            this.isTyping = false;
+                            this.typingUser = '';
+                        }, 5000);
                     });
             },
 
-            // Fetches initial message history
             fetchMessages() {
-                if (!this.conversationId) return this.messages = [];
-
-                axios.get(`/conversations/${this.conversationId}/messages`)
+                axios.get(`/chats/${this.conversationId}/messages`)
                     .then(response => {
-                        this.messages = response.data.messages;
+                        this.messages = response.data.messages || response.data;
+                        this.isLoading = false;
                         this.scrollToBottom();
                     })
-                    .catch(error => console.error('Failed to fetch messages:', error));
+                    .catch(error => {
+                        console.error(error);
+                        this.isLoading = false;
+                    });
             },
 
             sendMessage() {
                 if (this.newMessage.trim() === '') return;
 
-                axios.post(`/conversations/${this.conversationId}/messages`, {
+                const payload = {
                     body: this.newMessage
-                }).then(response => {
-                    this.newMessage = '';
-                    // The message will appear via the Echo listener, ensuring real-time integrity
-                }).catch(error => {
-                    console.error('Failed to send message:', error);
-                });
+                };
+                this.newMessage = ''; // Clear input immediately
+
+                axios.post(`/chats/${this.conversationId}/messages`, payload)
+                    .catch(error => {
+                        console.error('Message failed:', error);
+                        alert('Failed to send message');
+                    });
+            },
+
+            startTyping() {
+                // Only whisper if the message input is not empty
+                if (this.newMessage.length > 0) {
+                    window.Echo.private(`chat.${this.conversationId}`)
+                        .whisper('typing', {
+                            name: '{{ auth()->user()->name }}'
+                            // Ensure the user is authenticated and has a name attribute
+                        });
+                }
             },
 
             scrollToBottom() {
@@ -94,6 +198,13 @@ fetchMessages();"
                     if (box) {
                         box.scrollTop = box.scrollHeight;
                     }
+                });
+            },
+
+            formatTime(dateString) {
+                return new Date(dateString).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
                 });
             }
         }

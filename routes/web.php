@@ -29,6 +29,8 @@ Route::middleware('auth:web')->group(function () {
     // Chat
     Route::get('/chats', [ChatController::class, 'index'])->name('chat_page');
     Route::post('/chat/access', [ChatController::class, 'createConversation'])->name('chat.create');
+    Route::get('/chats/{conversation_id}/messages', [ChatController::class, 'getConversationMessages'])->name('chat.messages');
+    Route::post('/chats/{conversation_id}/messages', [ChatController::class, 'sendConversationMessages'])->name('chat.send.messages');
 });
 
 

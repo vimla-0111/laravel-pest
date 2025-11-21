@@ -2,26 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\SentPrivateMessage;
 use App\Models\Conversation;
 use App\Models\ConversationUser;
 use App\Models\User;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class ChatController extends Controller
 {
     public function index()
     {
-        return view('chat_page', ['users' => User::where('role', User::CUSTOMER_ROLE)->get(['id', 'name'])]);
+        // User::with(['conversations' => function ($q) {
+        //     $q->where('user_id', auth()->user()->id);
+        // }])->where('role', User::CUSTOMER_ROLE)->whereNot('id', auth()->user()->id)->get(['id', 'name']);
+        return view('chat_page', ['users' => User::where('role', User::CUSTOMER_ROLE)->whereNot('id', auth()->user()->id)->get(['id', 'name'])]);
     }
 
     public function createConversation(Request $request)
     {
-        // dd($request->recipient_id);
+        $validator = Validator::make($request->all(),['recipient_id' => 'required']);
+        if ($validator->fails()) {
+            throw new Exception('invalid selected user');
+        }
+
         $currrentUser = $request->user();
         $conversation = Conversation::whereHas('users', function ($q) use ($currrentUser) {
-            $q->where('user_id', $currrentUser->id);
+            $q->where('users.id', $currrentUser->id);
         })->whereHas('users', function ($q) use ($request) {
-            $q->where('user_id', $request->recipient_id);
+            $q->where('users.id', $request->recipient_id);
         })->first();
 
         if (!$conversation) {
@@ -29,10 +39,36 @@ class ChatController extends Controller
             $conversation->users()->attach([$currrentUser->id, $request->recipient_id]);
         }
 
-        // $conversationId = ConversationUser::whereIn('user_id', [$request->recipient_id, auth()->user()->id])->value('conversation_id');
-        // if (!$conversationId) {
-        //     $request->user()->conversations()->attach(auth()->user()->id);
-        // }
         return response()->json(['conversation_id' => $conversation->id]);
+    }
+
+    public function getConversationMessages($conversation_id)
+    {
+        $conversation = Conversation::find($conversation_id);
+        if (!$conversation) {
+            return response()->json(['messages' => []]);
+        }
+        $messages = $conversation->chats()->with('sender')->get();
+        return response()->json(['messages' => $messages]);
+    }
+
+    public function sendConversationMessages(Request $request, $conversation_id)
+    {
+        $conversation = Conversation::find($conversation_id);
+        if (!$conversation) {
+            return response()->json(['error' => 'Conversation not found'], 404);
+        }
+
+        $chat = $conversation->chats()->create([
+            'sender_id' => $request->user()->id,
+            'message' => $request->body,
+        ]);
+
+        $chat->load('sender');
+
+        // Broadcast the message to the conversation channel
+        broadcast(new SentPrivateMessage($chat));
+
+        return response()->json($chat);
     }
 }

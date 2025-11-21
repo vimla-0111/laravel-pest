@@ -72,4 +72,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Chat::class, 'sender_id', 'id');
     }
+
+    public function lastChatMessage($conversationId)
+    {
+        return $this->hasOne(Chat::class, 'sender_id', 'id')->where('conversation_id', $conversationId)->latest();
+    }
 }

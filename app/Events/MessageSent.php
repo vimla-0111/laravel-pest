@@ -39,6 +39,7 @@ class MessageSent implements ShouldBroadcastNow
         ];
     }
 
+
     /**
      * The event's broadcast name.
      */
@@ -46,7 +47,6 @@ class MessageSent implements ShouldBroadcastNow
     {
         return 'message.sent';
     }
-
     // Data sent to the browser
     public function broadcastWith(): array
     {

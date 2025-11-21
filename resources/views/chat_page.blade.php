@@ -10,7 +10,7 @@
             <h3 class="text-xl font-semibold p-4 border-b">Chats</h3>
 
             <template x-for="user in users" :key="user.id">
-                <button @click="selectUser(user.id)" :disabled="user.id === currentUserId"
+                <button @click="selectUser(user.id)" 
                     class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none"
                     :class="{
                         'bg-indigo-100 font-medium': selectedUserId === user.id,
@@ -31,10 +31,20 @@
                         </h3>
                     </div>
 
-                    <template x-if="conversationId">
-                        <x-chat :conversationId="null" x-bind:conversation-id="conversationId"
-                            x-bind:current-user-id="currentUserId" />
-                    </template>
+                    <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+                        <template x-if="conversationId" x-text="console.log('render chat component')">
+                            <div class="h-full w-full">
+                                <x-chat :conversationId="null" x-bind:conversation-id="conversationId"
+                                    x-bind:current-user-id="currentUserId" />
+                            </div>
+                        </template>
+
+                        <template x-if="isLoading">
+                            <div class="h-full flex items-center justify-center text-gray-500">
+                                Loading...
+                            </div>
+                        </template>
+                    </div>
 
                     <template x-if="isLoading">
                         <div class="flex-grow flex items-center justify-center text-gray-500">
@@ -59,8 +69,6 @@
     </div>
     <x-slot name="scripts">
         <script>
-            console.log('inside script');
-
             function mainComponent() {
                 return {
                     // Array of all users available for chat
@@ -90,6 +98,16 @@
                             })
                             .then(response => {
                                 this.conversationId = response.data.conversation_id;
+
+                                // Dispatch event so Child Component knows to update the data 
+                                // We wrap this in $nextTick to ensure the child component exists (after dom rendered) in DOM
+                                // this.$nextTick(() => {
+                                //     window.dispatchEvent(new CustomEvent('conversation-id', {
+                                //         detail: {
+                                //             id: this.conversationId
+                                //         }
+                                //     }));
+                                // });
                             })
                             .catch(error => {
                                 console.error('Error accessing chat:', error);
@@ -103,7 +121,7 @@
             }
         </script>
 
-        <script>
+        {{-- <script>
             function chatComponent(initialConversationId) {
                 return {
                     conversationId: initialConversationId,
@@ -119,10 +137,13 @@
                         if (this.channel) {
                             window.Echo.leave(`chat.${this.channel.name.split('.')[1]}`);
                         }
-
+                        console.log('inside init echo');
+                        
                         // 2. Connect to the new Private Channel
                         this.channel = window.Echo.private(`chat.${this.conversationId}`)
-                            .listen('MessageSent', (e) => {
+                            .listen('.chat.message.sent', (e) => {
+                                console.log(e);
+                                
                                 this.messages.push(e);
                                 this.scrollToBottom();
                             });
@@ -132,7 +153,7 @@
                     fetchMessages() {
                         if (!this.conversationId) return this.messages = [];
 
-                        axios.get(`/conversations/${this.conversationId}/messages`)
+                        axios.get(`/chats/${this.conversationId}/messages`)
                             .then(response => {
                                 this.messages = response.data.messages;
                                 this.scrollToBottom();
@@ -143,7 +164,7 @@
                     sendMessage() {
                         if (this.newMessage.trim() === '') return;
 
-                        axios.post(`/conversations/${this.conversationId}/messages`, {
+                        axios.post(`/chats/${this.conversationId}/messages`, {
                             body: this.newMessage
                         }).then(response => {
                             this.newMessage = '';
@@ -163,6 +184,15 @@
                     }
                 }
             }
-        </script>
+
+            function initChatComponent(initialConversationId) {
+                // Re-initialize when the parent component changes the conversation ID
+                if (initialConversationId !== conversationId) {
+                    conversationId = initialConversationId;
+                    initEcho();
+                    fetchMessages();
+                }
+            }
+        </script> --}}
     </x-slot>
 </x-app-layout>

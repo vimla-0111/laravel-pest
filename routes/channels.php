@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Conversation;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Log;
 
@@ -13,4 +14,11 @@ Broadcast::channel('private_chat', function ($user) {
     return  $user->role == 'customer';
 });
 
-// customer
+
+Broadcast::channel('chat.{conversation_id}', function ($user, $conversation_id) {
+    $conversation = Conversation::find($conversation_id);
+    if (!$conversation) {
+        return false;
+    }
+    return  $conversation->hasUser($user);
+});
