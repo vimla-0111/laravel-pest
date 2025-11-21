@@ -34,8 +34,17 @@ class MessageSent implements ShouldBroadcastNow
     {
         return [
             new Channel('chat'), // Using a public channel for this simple demo
-            // For private: new PrivateChannel('chat.' . $this->room_id)
+            new Channel('public'), // Using a public channel for this simple demo
+            new PrivateChannel('private_chat')
         ];
+    }
+
+    /**
+     * The event's broadcast name.
+     */
+    public function broadcastAs(): string
+    {
+        return 'message.sent';
     }
 
     // Data sent to the browser
