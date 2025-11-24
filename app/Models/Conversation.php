@@ -15,6 +15,12 @@ class Conversation extends Model
         return $this->belongsToMany(User::class, 'conversation_users');
     }
 
+    public function getReceiverAttribute()
+    {
+        // Return the first user who is NOT the logged-in user
+        return $this->users->where('id', '!=', auth()->id());
+    }
+
     public function hasUser($user): bool
     {
         return $this->users()->where('users.id', $user->id)->exists();
@@ -28,6 +34,6 @@ class Conversation extends Model
     // This fetches the single latest message efficiently
     public function latestMessage()
     {
-        return $this->hasOne(Chat::class,'conversation_id')->latestOfMany();
+        return $this->hasOne(Chat::class, 'conversation_id')->latestOfMany();
     }
 }

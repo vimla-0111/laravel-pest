@@ -52,7 +52,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             class="flex justify-center items-center h-full text-gray-400 text-sm">
             No messages yet. Say hello!
         </div>
-        <template x-for="msg in messages" :key="msg.id">
+        {{-- <template x-for="msg in messages" :key="msg.id">
             <div class="flex w-full" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
                 <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
                     :class="msg.sender_id === currentUserId ?
@@ -65,7 +65,34 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                     </span>
                 </div>
             </div>
+        </template> --}}
+
+        <template x-for="(msg, index) in messages" :key="msg.id">
+            <div class="w-full flex flex-col">
+
+                <div x-show="isNewDate(index)" class="flex justify-center my-4">
+                    <span x-text="formatDateLabel(msg.created_at)"
+                        class="text-[11px] font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                    </span>
+                </div>
+
+                <div class="flex w-full mb-2"
+                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
+                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
+                        :class="msg.sender_id === currentUserId ?
+                            'bg-indigo-600 text-white rounded-br-none' :
+                            'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
+
+                        <p x-text="msg.message" class="leading-relaxed"></p>
+
+                        <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
+                        </span>
+                    </div>
+                </div>
+            </div>
         </template>
+
+
     </div>
 
     <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
@@ -137,6 +164,11 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 this.channel = window.Echo.private(`chat.${this.conversationId}`)
                     .listen('.chat.message.sent', (e) => {
                         this.messages.push(e);
+                        this.$dispatch('set-lastMessage', {
+                            receivers: e.receivers,
+                            sender_id: e.sender_id,
+                            message: e.message
+                        });
                         this.scrollToBottom();
                     }).listenForWhisper('typing', (e) => {
                         this.typingUser = e.name;
@@ -199,6 +231,42 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                         box.scrollTop = box.scrollHeight;
                     }
                 });
+            },
+
+            /**
+             * Checks if the current message has a different date than the previous one.
+             */
+            isNewDate(index) {
+                // Always show date for the very first message
+                if (index === 0) return true;
+
+                const currentMsgDate = new Date(this.messages[index].created_at).toDateString();
+                const previousMsgDate = new Date(this.messages[index - 1].created_at).toDateString();
+
+                return currentMsgDate !== previousMsgDate;
+            },
+
+            /**
+             * Formats the date into "Today", "Yesterday", or "Month Day, Year"
+             */
+            formatDateLabel(dateString) {
+                const date = new Date(dateString);
+                const today = new Date();
+                const yesterday = new Date();
+                yesterday.setDate(today.getDate() - 1);
+
+                if (date.toDateString() === today.toDateString()) {
+                    return 'Today';
+                } else if (date.toDateString() === yesterday.toDateString()) {
+                    return 'Yesterday';
+                } else {
+                    // Returns format like: Nov 24, 2025
+                    return date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
+                }
             },
 
             formatTime(dateString) {

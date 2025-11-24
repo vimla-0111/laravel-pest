@@ -9,17 +9,64 @@
         <div class="w-1/4 border-r border-gray-200 bg-gray-50 overflow-y-auto">
             <h3 class="text-xl font-semibold p-4 border-b">Chats</h3>
 
-            <template x-for="user in users" :key="user.id">
-                <button @click="selectUser(user.id)" 
-                    class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none"
+            {{-- <template x-for="user in users" :key="user.id">
+                <button @click="selectUser(user.id)"
+                    class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none border-b border-gray-100"
                     :class="{
-                        'bg-indigo-100 font-medium': selectedUserId === user.id,
+                        'bg-indigo-100': selectedUserId === user.id,
                         'cursor-default opacity-50': user.id === currentUserId
                     }">
-                    <div class="w-10 h-10 bg-gray-400 rounded-full mr-3"></div>
-                    <span x-text="user.name"></span>
+
+                    <div class="w-10 h-10 bg-gray-400 rounded-full mr-3 flex-shrink-0"></div>
+
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <span x-text="user.name" class="font-semibold text-gray-900"
+                                :class="{ 'font-bold text-indigo-900': selectedUserId === user.id }">
+                            </span>
+                        </div>
+
+                        <p x-text="user?.last_message || 'No messages yet'" class="text-sm text-gray-500 truncate"
+                            :class="{ 'text-indigo-700': selectedUserId === user.id }">
+                        </p>
+                    </div>
+                </button>
+            </template> --}}
+            <template x-for="user in users" :key="user.id">
+                <button @click="selectUser(user.id)"
+                    class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none border-b border-gray-100 transition duration-150 ease-in-out"
+                    :class="{
+                        'bg-indigo-100': selectedUserId === user.id,
+                        'cursor-default opacity-50': user.id === currentUserId
+                    }">
+
+                    <div class="relative mr-3">
+                        <div class="w-10 h-10 bg-gray-400 rounded-full flex-shrink-0 overflow-hidden">
+                            <img
+                                :src="user.avatar ||
+                                    'https://ui-avatars.com/api/?name=' + user.name" alt="" class="w-full h-full object-cover">
+                    </div>
+
+                    <span x-show="activeUserIds.includes(user.id)"
+                          x-transition.scale.origin.center
+                          class="absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-white bg-green-500">
+                    </span>
+                </div>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center mb-1">
+                        <span x-text="user.name" class="font-semibold text-gray-900"
+                            :class="{'font-bold text - indigo - 900 ': selectedUserId === user.id }">
+                            </span>
+                        </div>
+
+                        <p x-text="user?.last_message || 'No messages yet'" class="text-sm text-gray-500 truncate"
+                            :class="{ 'text-indigo-700': selectedUserId === user.id }">
+                        </p>
+                    </div>
                 </button>
             </template>
+
         </div>
 
         <div class="w-3/4 flex flex-col">
@@ -81,6 +128,45 @@
                     conversationId: null,
                     // Loading state
                     isLoading: false,
+                    activeUserIds: [], // Stores IDs of online users
+
+                    init() {
+                        // Listen for event ONLY inside parent component
+                        this.$root.addEventListener('set-lastMessage', (e) => {
+                            console.log('new message received:', e.detail.message);
+                            // this.lastMessage = e.detail; // update parent property
+
+                            this.users = this.users.map(user => {
+                                if (e.detail.receivers.includes(user.id) || user.id == e.detail.sender_id) {
+                                    user.last_message = e.detail.message; // Update immediately
+                                }
+                                return user;
+                            });
+                        });
+
+                        // Connect to 'presence-chat' channel
+                        console.log('presence');
+
+                        Echo.join('global_chat')
+                            .here((users) => {
+                                // 'users' is the list of everyone currently in the channel
+                                this.activeUserIds = users.map(u => u.id);
+                            })
+                            .joining((user) => {
+                                // Push new user ID when they come online
+                                if (!this.activeUserIds.includes(user.id)) {
+                                    this.activeUserIds.push(user.id);
+                                }
+                            })
+                            .leaving((user) => {
+                                // Remove user ID when they go offline
+                                this.activeUserIds = this.activeUserIds.filter(id => id !== user.id);
+                            })
+                            .error((error) => {
+                                console.error('Reverb connection error:', error);
+                            });
+                    },
+
 
                     /** * Handles user selection and initiates the chat room process.
                      * @param {number} userId - The ID of the user to chat with.
@@ -98,6 +184,13 @@
                             })
                             .then(response => {
                                 this.conversationId = response.data.conversation_id;
+                                this.users.find(user => {
+                                    if (this.selectedUserId == user.id) {
+                                        user.last_message = response.data
+                                            .latest_message;
+                                    }
+                                    return user;
+                                });
 
                                 // Dispatch event so Child Component knows to update the data 
                                 // We wrap this in $nextTick to ensure the child component exists (after dom rendered) in DOM
@@ -120,79 +213,5 @@
                 }
             }
         </script>
-
-        {{-- <script>
-            function chatComponent(initialConversationId) {
-                return {
-                    conversationId: initialConversationId,
-                    messages: [],
-                    newMessage: '',
-                    channel: null,
-
-                    // Re-initializes the WebSocket connection when the room changes
-                    initEcho() {
-                        if (!this.conversationId) return;
-
-                        // 1. Leave any previous channels
-                        if (this.channel) {
-                            window.Echo.leave(`chat.${this.channel.name.split('.')[1]}`);
-                        }
-                        console.log('inside init echo');
-                        
-                        // 2. Connect to the new Private Channel
-                        this.channel = window.Echo.private(`chat.${this.conversationId}`)
-                            .listen('.chat.message.sent', (e) => {
-                                console.log(e);
-                                
-                                this.messages.push(e);
-                                this.scrollToBottom();
-                            });
-                    },
-
-                    // Fetches initial message history
-                    fetchMessages() {
-                        if (!this.conversationId) return this.messages = [];
-
-                        axios.get(`/chats/${this.conversationId}/messages`)
-                            .then(response => {
-                                this.messages = response.data.messages;
-                                this.scrollToBottom();
-                            })
-                            .catch(error => console.error('Failed to fetch messages:', error));
-                    },
-
-                    sendMessage() {
-                        if (this.newMessage.trim() === '') return;
-
-                        axios.post(`/chats/${this.conversationId}/messages`, {
-                            body: this.newMessage
-                        }).then(response => {
-                            this.newMessage = '';
-                            // The message will appear via the Echo listener, ensuring real-time integrity
-                        }).catch(error => {
-                            console.error('Failed to send message:', error);
-                        });
-                    },
-
-                    scrollToBottom() {
-                        this.$nextTick(() => {
-                            const box = this.$refs.scrollBox;
-                            if (box) {
-                                box.scrollTop = box.scrollHeight;
-                            }
-                        });
-                    }
-                }
-            }
-
-            function initChatComponent(initialConversationId) {
-                // Re-initialize when the parent component changes the conversation ID
-                if (initialConversationId !== conversationId) {
-                    conversationId = initialConversationId;
-                    initEcho();
-                    fetchMessages();
-                }
-            }
-        </script> --}}
     </x-slot>
 </x-app-layout>
