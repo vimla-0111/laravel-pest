@@ -79,6 +79,10 @@ class ChatController extends Controller
 
     public function sendConversationMessages(Request $request, $conversation_id)
     {
+        $request->validate([
+            'body'=>['required','string','max:25']
+        ]);
+
         try {
             $conversation = Conversation::find($conversation_id);
             if (!$conversation) {

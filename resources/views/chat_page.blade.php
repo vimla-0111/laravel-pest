@@ -1,11 +1,14 @@
 <x-app-layout>
+    <x-slot name="style">
+        @vite('resources/js/echo.js')
+    </x-slot>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Global Chat Room') }}
         </h2>
     </x-slot>
 
-    <div x-data="mainComponent()" class="bg-white shadow-xl sm:rounded-lg flex h-[80vh] overflow-hidden">
+    <div x-data="mainComponent" class="bg-white shadow-xl sm:rounded-lg flex h-[80vh] overflow-hidden">
         <div class="w-1/4 border-r border-gray-200 bg-gray-50 overflow-y-auto">
             <h3 class="text-xl font-semibold p-4 border-b">Chats</h3>
 
@@ -56,8 +59,7 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex justify-between items-center mb-1">
                         <span x-text="user.name" class="font-semibold text-gray-900"
-                            :class="{'font-bold text - indigo - 900 ': selectedUserId === user.id }">
-                            </span>
+                            :class="{' font-bold text-indigo-900 ': selectedUserId === user.id }"></span>
                         </div>
 
                         <p x-text="user?.last_message || 'No messages yet'" class="text-sm text-gray-500 truncate"
@@ -79,7 +81,7 @@
                     </div>
 
                     <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-                        <template x-if="conversationId" x-text="console.log('render chat component')">
+                        <template x-if="conversationId">
                             <div class="h-full w-full">
                                 <x-chat :conversationId="null" x-bind:conversation-id="conversationId"
                                     x-bind:current-user-id="currentUserId" />
@@ -116,8 +118,8 @@
     </div>
     <x-slot name="scripts">
         <script>
-            function mainComponent() {
-                return {
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('mainComponent', () => ({
                     // Array of all users available for chat
                     users: @js($users),
                     // ID of the user currently selected in the sidebar
@@ -137,34 +139,18 @@
                             // this.lastMessage = e.detail; // update parent property
 
                             this.users = this.users.map(user => {
-                                if (e.detail.receivers.includes(user.id) || user.id == e.detail.sender_id) {
-                                    user.last_message = e.detail.message; // Update immediately
+                                if (e.detail.receivers.includes(user.id) || user.id == e
+                                    .detail
+                                    .sender_id) {
+                                    user.last_message = e.detail
+                                        .message; // Update immediately
                                 }
                                 return user;
                             });
                         });
-
-                        // Connect to 'presence-chat' channel
-                        console.log('presence');
-
-                        Echo.join('global_chat')
-                            .here((users) => {
-                                // 'users' is the list of everyone currently in the channel
-                                this.activeUserIds = users.map(u => u.id);
-                            })
-                            .joining((user) => {
-                                // Push new user ID when they come online
-                                if (!this.activeUserIds.includes(user.id)) {
-                                    this.activeUserIds.push(user.id);
-                                }
-                            })
-                            .leaving((user) => {
-                                // Remove user ID when they go offline
-                                this.activeUserIds = this.activeUserIds.filter(id => id !== user.id);
-                            })
-                            .error((error) => {
-                                console.error('Reverb connection error:', error);
-                            });
+                        this.$nextTick(() => {
+                            this.createGlobalChannel();
+                        });
                     },
 
 
@@ -209,9 +195,30 @@
                             .finally(() => {
                                 this.isLoading = false;
                             });
+                    },
+                    createGlobalChannel() {
+                        // Connect to 'presence-chat' channel
+                        window.Echo.join('global_chat')
+                            .here((users) => {
+                                // 'users' is the list of everyone currently in the channel
+                                this.activeUserIds = users.map(u => u.id);
+                            })
+                            .joining((user) => {
+                                // Push new user ID when they come online
+                                if (!this.activeUserIds.includes(user.id)) {
+                                    this.activeUserIds.push(user.id);
+                                }
+                            })
+                            .leaving((user) => {
+                                // Remove user ID when they go offline
+                                this.activeUserIds = this.activeUserIds.filter(id => id !== user.id);
+                            })
+                            .error((error) => {
+                                console.error('Reverb connection error:', error);
+                            });
                     }
-                }
-            }
+                }));
+            })
         </script>
     </x-slot>
 </x-app-layout>

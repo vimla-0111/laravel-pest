@@ -95,7 +95,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
 
     </div>
 
-    <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
+    {{-- <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
         <div class="relative flex items-center">
             <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
                 @keydown.debounce.1000ms="startTyping" placeholder="Type your message..."
@@ -109,6 +109,69 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                         d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                 </svg>
             </button>
+        </div>
+    </div> --}}
+    <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
+        <div x-data="{
+            newMessage: '',
+            selectedImage: null,
+            previewUrl: null,
+            pickImage() { this.$refs.fileInput.click(); },
+            handleImage(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+        
+                this.selectedImage = file;
+                this.previewUrl = URL.createObjectURL(file);
+            },
+            removeImage() {
+                this.selectedImage = null;
+                this.previewUrl = null;
+                this.$refs.fileInput.value = null;
+            },
+        }" class="relative flex items-center">
+
+            <!-- HIDDEN FILE INPUT -->
+            <input type="file" accept="image/*" class="hidden" x-ref="fileInput" @change="handleImage">
+
+            <!-- MESSAGE INPUT -->
+            <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
+                placeholder="Type your message..."
+                class="w-full bg-gray-100 border-0 rounded-full py-3 pl-12 pr-12 focus:ring-2 
+               focus:ring-indigo-500 focus:bg-white transition-all"
+                :disabled="!conversationId || isLoading">
+
+            <!-- IMAGE PICK BUTTON -->
+            <!-- PLUS (+) PICK BUTTON -->
+            <button @click="pickImage"
+                class="absolute left-3 p-1 text-indigo-600 bg-indigo-100 rounded-full hover:bg-indigo-200 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
+
+
+
+            <!-- SEND BUTTON -->
+            <button @click="sendMessage" :disabled="(!conversationId) || (!newMessage.trim() && !selectedImage)"
+                class="absolute right-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 
+               disabled:opacity-50 transition-colors">
+                <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+            </button>
+
+            <!-- IMAGE PREVIEW (like WhatsApp) -->
+            <template x-if="previewUrl">
+                <div class="absolute -top-24 left-0 bg-white shadow-lg rounded-lg overflow-hidden p-2 w-32">
+                    <img :src="previewUrl" class="rounded-md w-full h-auto">
+
+                    <!-- Remove Image -->
+                    <button @click="removeImage"
+                        class="absolute top-1 right-1 bg-red-600 text-white rounded-full px-1 text-xs">✕</button>
+                </div>
+            </template>
         </div>
     </div>
 </div>
@@ -150,8 +213,6 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             },
 
             initEcho() {
-                console.log('init echo');
-
                 // Leave previous channel if exists
                 // only required when update component by triggering event
                 // when component initialize every time the conversation changed then it create new channel
@@ -209,7 +270,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 axios.post(`/chats/${this.conversationId}/messages`, payload)
                     .catch(error => {
                         console.error('Message failed:', error);
-                        alert('Failed to send message');
+                        alert(error.response.data.message);
                     });
             },
 
