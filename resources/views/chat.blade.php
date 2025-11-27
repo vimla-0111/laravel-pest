@@ -9,6 +9,9 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg" x-data="chatComponent({{ auth()->id() }})" x-init="start()">
+                <div x-show="isTyping" class="text-xs text-gray-500 italic p-2">
+                    <span x-text="typingUser"></span> is typing...
+                </div>
                 <div class="p-6 text-gray-900">
 
                     <div class="h-96 overflow-y-auto border-b border-gray-200 mb-4 p-4 flex flex-col space-y-2"
@@ -26,7 +29,8 @@
                     </div>
 
                     <form @submit.prevent="sendMessage" class="flex gap-4">
-                        <input type="text" x-model="newMessage"
+                        <input type="text" x-model="newMessage" @keydown.debounce.500ms="startTyping"
+                            @keyup.debounce.1000ms="stopTyping"
                             class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             placeholder="Type your message...">
                         <button type="submit"
@@ -49,17 +53,21 @@
                 currentUserId: currentUserId,
                 messages: @json($messages), // Loaded from DB via Blade
                 newMessage: '',
-                init(){
+                typingTimeout: null,
+                isTyping: false,
+                typingUser: '',
+
+                init() {
                     console.log('init called');
                 },
                 start() {
                     // 1. Scroll to bottom on load
                     this.$nextTick(() => this.scrollToBottom());
                     console.log('start called');
-                    
+
                     // 2. Listen to Reverb Channel
                     window.Echo.channel('chat')
-                        .listen('MessageSent', (e) => {
+                        .listen('.message.sent', (e) => {
                             this.messages.push({
                                 id: e.id,
                                 text: e.text,
@@ -70,6 +78,30 @@
                             console.log(this.messages);
 
                             this.$nextTick(() => this.scrollToBottom());
+                        });
+
+                    window.Echo.channel('public')
+                        .listen('.message.sent', (e) => {
+                            console.log('recieved new message');
+                            console.log(e.text);
+                        });
+
+                    window.Echo.private('private_chat')
+                        .listen('.message.sent', (e) => {
+                            console.log('recieved new private message');
+                            console.log(e.text);
+                        }).listenForWhisper('typing', (e) => {
+                            this.typingUser = e.name;
+                            this.isTyping = true;
+
+                            // Clear any existing timeout
+                            clearTimeout(this.typingTimeout);
+
+                            // Set a new timeout to hide the indicator after 3 seconds
+                            this.typingTimeout = setTimeout(() => {
+                                this.isTyping = false;
+                                this.typingUser = '';
+                            }, 3000);
                         });
                 },
 
@@ -91,12 +123,31 @@
                     // Send to Server
                     axios.post('/chat', {
                             text: text
+                        }, {
+                            headers: {
+                                'X-Socket-ID': Echo.socketId()
+                            }
                         })
                         .catch(error => {
                             console.error('Message sending failed:', error);
                         });
                 },
 
+                startTyping() {
+                    // Only whisper if the message input is not empty
+                    if (this.newMessage.length > 0) {
+                        window.Echo.private('private_chat')
+                            .whisper('typing', {
+                                name: '{{ Auth::user()->name }}'
+                                // Ensure the user is authenticated and has a name attribute
+                            });
+                    }
+                },
+                
+                stopTyping() {
+                    // You can optionally send a 'stop-typing' whisper here if needed, 
+                    // but usually, a client-side timeout is sufficient for good UX.
+                },
                 scrollToBottom() {
                     this.$refs.chatBox.scrollTop = this.$refs.chatBox.scrollHeight;
                 }

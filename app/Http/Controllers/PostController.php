@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Models\Post;
+use App\Models\User;
+use App\Notifications\NewPost;
 use App\Services\PostService;
 use Illuminate\Http\RedirectResponse;
 
@@ -41,9 +43,10 @@ class PostController extends Controller
     {
         info('storing the post');
         // Create the post and link it to the authenticated user
-        $postService->createPost(auth()->user(), $request->validated());
+        $post = $postService->createPost(auth()->user(), $request->validated());
         // Auth::user()->posts()->create($request->validated());
 
+        User::where('role', User::ADMIN_ROLE)->first()->notify(new NewPost($post));
         return redirect()->route('posts.index')
             ->with('success', 'Post created successfully!');
     }

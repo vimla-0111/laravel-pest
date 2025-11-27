@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
@@ -13,11 +14,34 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+Route::get('/performance-statistics', function () {
+    return view('vendor.pulse.dashboard');
+})->middleware(['auth', 'verified'])->name('perfomance.statistics');
+
+Route::middleware('auth:web')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    //post
+    Route::resource('posts', PostController::class);
+
+    // Simple chat
+    Route::get('/chat', [MessageController::class, 'index'])->name('chat');
+    Route::post('/chat', [MessageController::class, 'store']);
+
+    // Chat
+    Route::get('/chats', [ChatController::class, 'index'])->name('chat_page');
+    Route::post('/chat/access', [ChatController::class, 'createConversation'])->name('chat.create');
+    Route::get('/chats/{conversation_id}/messages', [ChatController::class, 'getConversationMessages'])->name('chat.messages');
+    Route::post('/chats/{conversation_id}/messages', [ChatController::class, 'sendConversationMessages'])->name('chat.send.messages');
 });
+
+
+
+
+
+
 
 // // Public routes (anyone can see)
 // Route::get('/posts', [PostController::class, 'index'])->name('post.index');
@@ -29,13 +53,4 @@ Route::middleware('auth')->group(function () {
 //     Route::put('/posts/{post}', [PostController::class, 'update'])->name('post.update');
 //     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('post.destroy');
 // });
-
-Route::resource('posts', PostController::class)
-     ->middleware('auth:web');
-
-Route::middleware('auth')->group(function () {
-    Route::get('/chat', [MessageController::class, 'index'])->name('chat');
-    Route::post('/chat', [MessageController::class, 'store']);
-});
-
 require __DIR__ . '/auth.php';
