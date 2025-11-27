@@ -45,9 +45,8 @@
 
                     <div class="relative mr-3">
                         <div class="w-10 h-10 bg-gray-400 rounded-full flex-shrink-0 overflow-hidden">
-                            <img
-                                :src="user.avatar ||
-                                    'https://ui-avatars.com/api/?name=' + user.name" alt="" class="w-full h-full object-cover">
+                            <img :src="user.avatar ||
+                                'https://ui-avatars.com/api/?name=' + user.name" alt="" class="w-full h-full object-cover">
                     </div>
 
                     <span x-show="activeUserIds.includes(user.id)"
@@ -59,13 +58,16 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex justify-between items-center mb-1">
                         <span x-text="user.name" class="font-semibold text-gray-900"
-                            :class="{' font-bold text-indigo-900 ': selectedUserId === user.id }"></span>
+                            {{-- :class="{' font-bold text-indigo-900 ': selectedUserId === user.id }" --}}
+                            >
+                        </span>
                         </div>
 
-                        <p x-text="user?.last_message || 'No messages yet'" class="text-sm text-gray-500 truncate"
-                            :class="{ 'text-indigo-700': selectedUserId === user.id }">
-                        </p>
-                    </div>
+                        <p x-text="user?.last_message || 'No messages yet '"
+                                class="text-sm text-gray-500 truncate"
+                                :class="{ 'text-indigo-700': selectedUserId === user.id }">
+                            </p>
+                        </div>
                 </button>
             </template>
 
@@ -120,37 +122,43 @@
         <script>
             document.addEventListener('alpine:init', () => {
                 Alpine.data('mainComponent', () => ({
-                    // Array of all users available for chat
-                    users: @js($users),
-                    // ID of the user currently selected in the sidebar
-                    selectedUserId: null,
-                    // The ID of the currently authenticated user (for determining message direction)
-                    currentUserId: {{ auth()->user()->id }},
-                    // Holds the conversation ID once selected or created (initially null)
-                    conversationId: null,
-                    // Loading state
-                    isLoading: false,
-                    activeUserIds: [], // Stores IDs of online users
+                        // Array of all users available for chat
+                        users: @js($users),
+                        // ID of the user currently selected in the sidebar
+                        selectedUserId: null,
+                        // The ID of the currently authenticated user (for determining message direction)
+                        currentUserId: {{ auth()->user()->id }},
+                        // Holds the conversation ID once selected or created (initially null)
+                        conversationId: null,
+                        // Loading state
+                        isLoading: false,
+                        activeUserIds: [], // Stores IDs of online users
 
-                    init() {
-                        // Listen for event ONLY inside parent component
-                        this.$root.addEventListener('set-lastMessage', (e) => {
-                            console.log('new message received:', e.detail.message);
-                            // this.lastMessage = e.detail; // update parent property
+                        init() {
+                            // Listen for event ONLY inside parent component
+                            this.$root.addEventListener('set-lastMessage', (e) => {
+                                console.log('new message received:', e.detail.message);
+                                // this.lastMessage = e.detail; // update parent property
 
-                            this.users = this.users.map(user => {
-                                if (e.detail.receivers.includes(user.id) || user.id == e
-                                    .detail
-                                    .sender_id) {
-                                    user.last_message = e.detail
-                                        .message; // Update immediately
-                                }
-                                return user;
+                                this.users = this.users.map(user => {
+                                    if (e.detail.receivers.includes(user.id) || user.id == e
+                                        .detail
+                                        .sender_id) {
+                                        user.last_message = e.detail
+                                            .message; // Update immediately
+                                    }
+                                    return user;
+                                });
                             });
-                        });
-                        this.$nextTick(() => {
-                            this.createGlobalChannel();
-                        });
+                            this.$nextTick(() => {
+                                this.createGlobalChannel();
+                                @if(auth()->user()->role == 'admin')
+                                    window.Echo.private('notification')
+                                        .notification((payload) => {
+                                            console.log('notification', payload);
+                                        });
+                                @endif
+                            });
                     },
 
 

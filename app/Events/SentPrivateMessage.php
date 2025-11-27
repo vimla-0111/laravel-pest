@@ -52,6 +52,7 @@ class SentPrivateMessage implements ShouldBroadcastNow
             'receivers'   => $this->chat->conversation->receiver->pluck('id'),
             'message' => $this->chat->message,
             'created_at' => $this->chat->created_at,
+            'media_path' => $this->chat->media_path
         ];
     }
 }

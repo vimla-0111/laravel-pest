@@ -11,9 +11,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Traits\Helper;
 
 class ChatController extends Controller
 {
+    use Helper;
     public function index()
     {
         // dd(Auth::user()->conversations()->get());
@@ -36,7 +38,7 @@ class ChatController extends Controller
             ->get(['id', 'name'])
             ->map(function ($user) {
                 $convo = $user->conversations->first();
-                $user->last_message = $convo?->latestMessage?->message ?? null;
+                $user->last_message = $convo?->latestMessage?->media_path ? 'media' :  $convo?->latestMessage?->message ?? null;
                 return $user;
             });
 
@@ -64,7 +66,7 @@ class ChatController extends Controller
             $conversation->load('latestMessage');
         }
 
-        return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->message]);
+        return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->media_path ? 'media' :  $conversation?->latestMessage?->message ?? null]);
     }
 
     public function getConversationMessages($conversation_id)
@@ -80,10 +82,16 @@ class ChatController extends Controller
     public function sendConversationMessages(Request $request, $conversation_id)
     {
         $request->validate([
-            'body'=>['required','string','max:25']
+            'body' => ['nullable', 'required_without:image', 'string', 'max:255'],
+            'image' => ['nullable', 'required_without:body', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048']
         ]);
 
         try {
+            $path = null;
+            if ($request->image) {
+                $path = $this->storeMedia($request->image);
+            }
+
             $conversation = Conversation::find($conversation_id);
             if (!$conversation) {
                 return response()->json(['error' => 'Conversation not found'], 404);
@@ -93,6 +101,7 @@ class ChatController extends Controller
             $chat = $conversation->chats()->create([
                 'sender_id' => $request->user()->id,
                 'message' => $request->body,
+                'media_path' => $path
             ]);
             DB::commit();
 
@@ -105,6 +114,8 @@ class ChatController extends Controller
         } catch (\Throwable $th) {
             //throw $th;
             DB::rollBack();
+            $path ? unlink( $path ) : null;
+            dd($th);
             return response()->json(status: 500);
         }
     }

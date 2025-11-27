@@ -15,7 +15,7 @@ Broadcast::channel('private_chat', function ($user) {
     return  $user->role == 'customer';
 });
 
-
+// one to one chat channel between two users
 Broadcast::channel('chat.{conversation_id}', function ($user, $conversation_id) {
     $conversation = Conversation::find($conversation_id);
     if (!$conversation) {
@@ -32,4 +32,9 @@ Broadcast::channel('global_chat', function ($user) {
         return ['id' => $user->id, 'name' => $user->name];
     }
     return false;
+});
+
+// notification channel for each user
+Broadcast::channel('notification', function ($user) {
+    return $user->id == User::where('role', User::ADMIN_ROLE)->value('id');
 });

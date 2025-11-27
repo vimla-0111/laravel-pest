@@ -83,8 +83,20 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                             'bg-indigo-600 text-white rounded-br-none' :
                             'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
 
-                        <p x-text="msg.message" class="leading-relaxed"></p>
-
+                        <template x-if="msg.media_path">
+                            <div class="mb-2">
+                                <a :href="msg.media_path" target="_blank" class="block">
+                                    <img :src="msg.media_path"
+                                        class="rounded-lg object-cover 
+                                        w-48 h-32 md:w-64 md:h-40       border"
+                                        :class="msg.sender_id === currentUserId ? 'border-indigo-500' : 'border-gray-200'"
+                                        alt="Attachment" onerror="">
+                                </a>
+                            </div>
+                        </template>
+                        <template x-if="msg.message">
+                            <p x-text="msg.message" class="leading-relaxed"></p>
+                        </template>
                         <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
                         </span>
                     </div>
@@ -113,8 +125,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
     </div> --}}
     <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
         <div x-data="{
-            newMessage: '',
-            selectedImage: null,
+            selectedImage: '',
             previewUrl: null,
             pickImage() { this.$refs.fileInput.click(); },
             handleImage(e) {
@@ -125,7 +136,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 this.previewUrl = URL.createObjectURL(file);
             },
             removeImage() {
-                this.selectedImage = null;
+                this.selectedImage = '';
                 this.previewUrl = null;
                 this.$refs.fileInput.value = null;
             },
@@ -193,6 +204,22 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 if (this.conversationId) {
                     this.setupConversation();
                 }
+                this.$nextTick(() => {
+
+                    //fetch messages when websocket connection reconnected
+                    window.Echo.connector.pusher.connection.bind('state_change', (
+                        states) => {
+                        // states = { previous: 'disconnected', current: 'connected' }
+                        console.log(states);
+
+                        if (states.previous === 'unavailable' && states.current ===
+                            'connected') {
+                            console.log(
+                                'Connection restored! Fetching missed data...');
+                            this.fetchMessages();
+                        }
+                    });
+                });
             },
 
             // called when parent's custom event triggered
@@ -260,14 +287,16 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             },
 
             sendMessage() {
-                if (this.newMessage.trim() === '') return;
 
-                const payload = {
-                    body: this.newMessage
-                };
-                this.newMessage = ''; // Clear input immediately
+                // if (this.newMessage.trim() === '') return;
+                const formData = new FormData();
+                formData.append('body', this.newMessage)
+                formData.append('image', this.selectedImage);
 
-                axios.post(`/chats/${this.conversationId}/messages`, payload)
+                this.newMessage = ''; // Clear input immediately    
+                this.removeImage(); // Clear selected image immediately
+
+                axios.post(`/chats/${this.conversationId}/messages`, formData)
                     .catch(error => {
                         console.error('Message failed:', error);
                         alert(error.response.data.message);
