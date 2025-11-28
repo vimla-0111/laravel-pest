@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Notifications\NewPost;
 use App\Services\PostService;
 use Illuminate\Http\RedirectResponse;
-
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -46,7 +46,12 @@ class PostController extends Controller
         $post = $postService->createPost(auth()->user(), $request->validated());
         // Auth::user()->posts()->create($request->validated());
 
-        User::where('role', User::ADMIN_ROLE)->first()->notify(new NewPost($post));
+
+        $users = User::whereNot('id', auth()->id())->get();
+        // $users = User::where('role',User::ADMIN_ROLE)->first();
+
+        Notification::send($users, new NewPost($post));
+
         return redirect()->route('posts.index')
             ->with('success', 'Post created successfully!');
     }

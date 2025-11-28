@@ -78,8 +78,8 @@ class User extends Authenticatable
         return $this->hasOne(Chat::class, 'sender_id', 'id')->where('conversation_id', $conversationId)->latest();
     }
 
-     public function receivesBroadcastNotificationsOn(): string
+    public function receivesBroadcastNotificationsOn(): string
     {
-        return 'notification';
+        return 'notification.' . $this->id;
     }
 }
