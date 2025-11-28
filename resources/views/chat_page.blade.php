@@ -8,33 +8,10 @@
         </h2>
     </x-slot>
 
-    <div x-data="mainComponent" class="bg-white shadow-xl sm:rounded-lg flex h-[80vh] overflow-hidden">
-        <div class="w-1/4 border-r border-gray-200 bg-gray-50 overflow-y-auto">
+    <div x-data="mainComponent" class="shadow-xl sm:rounded-lg flex h-[80vh] overflow-hidden">
+        <div class="w-1/4 border-r border-gray-200 overflow-y-auto">
             <h3 class="text-xl font-semibold p-4 border-b">Chats</h3>
 
-            {{-- <template x-for="user in users" :key="user.id">
-                <button @click="selectUser(user.id)"
-                    class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none border-b border-gray-100"
-                    :class="{
-                        'bg-indigo-100': selectedUserId === user.id,
-                        'cursor-default opacity-50': user.id === currentUserId
-                    }">
-
-                    <div class="w-10 h-10 bg-gray-400 rounded-full mr-3 flex-shrink-0"></div>
-
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between items-center mb-1">
-                            <span x-text="user.name" class="font-semibold text-gray-900"
-                                :class="{ 'font-bold text-indigo-900': selectedUserId === user.id }">
-                            </span>
-                        </div>
-
-                        <p x-text="user?.last_message || 'No messages yet'" class="text-sm text-gray-500 truncate"
-                            :class="{ 'text-indigo-700': selectedUserId === user.id }">
-                        </p>
-                    </div>
-                </button>
-            </template> --}}
             <template x-for="user in users" :key="user.id">
                 <button @click="selectUser(user.id)"
                     class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none border-b border-gray-100 transition duration-150 ease-in-out"
@@ -57,9 +34,7 @@
 
                 <div class="flex-1 min-w-0">
                     <div class="flex justify-between items-center mb-1">
-                        <span x-text="user.name" class="font-semibold text-gray-900"
-                            {{-- :class="{' font-bold text-indigo-900 ': selectedUserId === user.id }" --}}
-                            >
+                        <span x-text="user.name" class="font-semibold text-gray-900">
                         </span>
                         </div>
 

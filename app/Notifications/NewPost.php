@@ -58,7 +58,7 @@ class NewPost extends Notification implements ShouldQueue
     }
 
     // the array will be stored in data column of the notification table
-    public function toDatabase($notifiable)
+    public function toDatabase($notifiable) : array
     {
         Log::info('storing notification');
         return [

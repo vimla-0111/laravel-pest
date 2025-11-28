@@ -20,7 +20,7 @@ class PostController extends Controller
      */
     public function index(): View
     {
-        $posts = Post::latest()->paginate(10)->through(function ($post) {
+        $posts = Post::createdBy(auth()->id())->latest()->paginate(10)->through(function ($post) {
             $post->append('formatted_published_at');
             return $post;
         });
@@ -44,13 +44,9 @@ class PostController extends Controller
         info('storing the post');
         // Create the post and link it to the authenticated user
         $post = $postService->createPost(auth()->user(), $request->validated());
-        // Auth::user()->posts()->create($request->validated());
-
 
         $users = User::whereNot('id', auth()->id())->get();
-        // $users = User::where('role',User::ADMIN_ROLE)->first();
-
-        Notification::send($users, new NewPost($post));
+        Notification::send($users, new NewPost($post)); // send notifications to all users except the creator
 
         return redirect()->route('posts.index')
             ->with('success', 'Post created successfully!');
@@ -59,11 +55,12 @@ class PostController extends Controller
     /**
      * Display the specified resource.
      */
-    // public function show(Post $post): View
-    // {
-    // Not typically used in a simple CRUD, but good to have.
-    // return view('posts.show', compact('post'));
-    // }
+    public function show(Post $post): View
+    {
+        $post = Post::published()->with('creator')->findOrFail($post->id);
+        $post->append('formatted_published_at');
+        return view('posts.show', compact('post'));
+    }
 
     /**
      * Show the form for editing the specified resource.

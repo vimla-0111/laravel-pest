@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -73,13 +75,13 @@ class User extends Authenticatable
         return $this->hasMany(Chat::class, 'sender_id', 'id');
     }
 
-    public function lastChatMessage($conversationId)
-    {
-        return $this->hasOne(Chat::class, 'sender_id', 'id')->where('conversation_id', $conversationId)->latest();
-    }
-
     public function receivesBroadcastNotificationsOn(): string
     {
         return 'notification.' . $this->id;
+    }
+
+    public function scopeIsCustomer($query) : Builder
+    {
+        return $query->where('role', self::CUSTOMER_ROLE);
     }
 }

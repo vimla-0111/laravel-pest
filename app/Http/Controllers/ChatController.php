@@ -6,17 +6,23 @@ use App\Events\SentPrivateMessage;
 use App\Models\Conversation;
 use App\Models\ConversationUser;
 use App\Models\User;
+use App\Services\ChatService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Traits\Helper;
+use Illuminate\Http\JsonResponse;
+use Illuminate\View\View;
 
 class ChatController extends Controller
 {
     use Helper;
-    public function index()
+
+    public function __construct(protected ChatService $chatService) {}
+
+    public function index(): View
     {
         // dd(Auth::user()->conversations()->get());
         // $users = User::with(['conversations.latestMessage'])
@@ -27,7 +33,7 @@ class ChatController extends Controller
         // dd(auth()->user()->id,$users->toArray());
 
         $conversationIds = Auth::user()->conversations()->pluck('conversations.id');
-        $users = User::where('role', User::CUSTOMER_ROLE)
+        $users = User::isCustomer()
             ->whereNot('id', auth()->user()->id)
             ->with([
                 'conversations' => function ($q) use ($conversationIds) {
@@ -45,7 +51,7 @@ class ChatController extends Controller
         return view('chat_page', ['users' => $users]);
     }
 
-    public function createConversation(Request $request)
+    public function createConversation(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), ['recipient_id' => 'required']);
         if ($validator->fails()) {
@@ -69,7 +75,7 @@ class ChatController extends Controller
         return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->media_path ? 'media' :  $conversation?->latestMessage?->message ?? null]);
     }
 
-    public function getConversationMessages($conversation_id)
+    public function getConversationMessages($conversation_id): JsonResponse
     {
         $conversation = Conversation::find($conversation_id);
         if (!$conversation) {
@@ -79,7 +85,7 @@ class ChatController extends Controller
         return response()->json(['messages' => $messages]);
     }
 
-    public function sendConversationMessages(Request $request, $conversation_id)
+    public function sendConversationMessages(Request $request, $conversation_id): JsonResponse
     {
         $request->validate([
             'body' => ['nullable', 'required_without:image', 'string', 'max:255'],
@@ -114,7 +120,7 @@ class ChatController extends Controller
         } catch (\Throwable $th) {
             //throw $th;
             DB::rollBack();
-            $path ? unlink( $path ) : null;
+            $path ? unlink($path) : null;
             dd($th);
             return response()->json(status: 500);
         }

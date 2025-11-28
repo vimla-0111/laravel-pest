@@ -1,41 +1,3 @@
-{{-- @props(['conversationId', 'currentUserId'])
-
-<div x-data="chatComponent(conversationId)" x-init="initEcho();
-fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
-    class="flex flex-col h-full">
-    <div x-ref="scrollBox" class="flex-grow p-4 space-y-3 overflow-y-auto bg-gray-50">
-        <template x-for="msg in messages" :key="msg.id">
-            <div class="flex" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
-                <div class="max-w-xs p-3 rounded-lg shadow"
-                    :class="msg.sender_id === currentUserId ? 'bg-indigo-500 text-white' : 'bg-white text-gray-800'">
-                    <p x-text="msg.message"></p>
-                    <span class="text-xs opacity-75 mt-1 block text-right"
-                        x-text="new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})">
-                    </span>
-                </div>
-            </div>
-        </template>
-    </div>
-
-    <div class="p-4 bg-white border-t">
-        <div class="flex">
-            <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
-                placeholder="Type your message..."
-                class="flex-grow border border-gray-300 rounded-l-lg p-3 focus:ring-indigo-500 focus:border-indigo-500"
-                :disabled="!conversationId">
-            <button @click="sendMessage" :disabled="!conversationId || newMessage.trim() === ''"
-                class="bg-indigo-600 text-white px-6 rounded-r-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150">
-                Send
-            </button>
-        </div>
-    </div>
-</div> --}}
-
-
-
-
-
-
 @props(['conversationId', 'currentUserId'])
 
 <div x-data="chatComponent(conversationId)" @conversation-id.window="handleConversationChange($event.detail.id)"
@@ -52,20 +14,6 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             class="flex justify-center items-center h-full text-gray-400 text-sm">
             No messages yet. Say hello!
         </div>
-        {{-- <template x-for="msg in messages" :key="msg.id">
-            <div class="flex w-full" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
-                <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
-                    :class="msg.sender_id === currentUserId ?
-                        'bg-indigo-600 text-white rounded-br-none' :
-                        'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
-
-                    <p x-text="msg.message" class="leading-relaxed"></p>
-
-                    <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
-                    </span>
-                </div>
-            </div>
-        </template> --}}
 
         <template x-for="(msg, index) in messages" :key="msg.id">
             <div class="w-full flex flex-col">
@@ -103,26 +51,8 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 </div>
             </div>
         </template>
-
-
     </div>
 
-    {{-- <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
-        <div class="relative flex items-center">
-            <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
-                @keydown.debounce.1000ms="startTyping" placeholder="Type your message..."
-                class="w-full bg-gray-100 border-0 rounded-full py-3 pl-5 pr-12 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                :disabled="!conversationId || isLoading">
-
-            <button @click="sendMessage" :disabled="!conversationId || newMessage.trim() === ''"
-                class="absolute right-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors">
-                <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                </svg>
-            </button>
-        </div>
-    </div> --}}
     <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
         <div x-data="{
             selectedImage: '',
@@ -153,15 +83,12 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 :disabled="!conversationId || isLoading">
 
             <!-- IMAGE PICK BUTTON -->
-            <!-- PLUS (+) PICK BUTTON -->
             <button @click="pickImage"
                 class="absolute left-3 p-1 text-indigo-600 bg-indigo-100 rounded-full hover:bg-indigo-200 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
             </button>
-
-
 
             <!-- SEND BUTTON -->
             <button @click="sendMessage" :disabled="(!conversationId) || (!newMessage.trim() && !selectedImage)"
@@ -173,7 +100,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 </svg>
             </button>
 
-            <!-- IMAGE PREVIEW (like WhatsApp) -->
+            <!-- IMAGE PREVIEW -->
             <template x-if="previewUrl">
                 <div class="absolute -top-24 left-0 bg-white shadow-lg rounded-lg overflow-hidden p-2 w-32">
                     <img :src="previewUrl" class="rounded-md w-full h-auto">

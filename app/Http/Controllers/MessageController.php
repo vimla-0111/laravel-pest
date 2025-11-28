@@ -4,14 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Events\MessageSent;
 use App\Models\Message;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\View\View;
 
 use function Laravel\Prompts\info;
 
 class MessageController extends Controller
 {
-    public function index()
+    public function index() : View
     {
         // Load initial messages
         return view('chat', [
@@ -19,7 +21,7 @@ class MessageController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request) : JsonResponse
     {
         Log::info('starting store in MessageController');
         $request->validate(['text' => 'required']);
