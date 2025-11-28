@@ -35,6 +35,12 @@ Route::middleware('auth:web')->group(function () {
     Route::post('/chat/access', [ChatController::class, 'createConversation'])->name('chat.create');
     Route::get('/chats/{conversation_id}/messages', [ChatController::class, 'getConversationMessages'])->name('chat.messages');
     Route::post('/chats/{conversation_id}/messages', [ChatController::class, 'sendConversationMessages'])->name('chat.send.messages');
+
+    // Notifications
+    Route::delete('/notifications/{id}', function ($id) {
+        auth()->user()->notifications()->find($id)->markAsRead();
+        return response()->json(['success' => true]);
+    });
 });
 
 

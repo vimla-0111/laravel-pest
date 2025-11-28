@@ -9,7 +9,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 
-class NewPost extends Notification
+class NewPost extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -18,7 +18,6 @@ class NewPost extends Notification
      */
     public function __construct(protected $post)
     {
-        //
         Log::info('NewPost notification created for post ID: ' . ($post?->id ?? 'null'));
     }
 
@@ -29,8 +28,7 @@ class NewPost extends Notification
      */
     public function via(object $notifiable): array
     {
-        // return ['mail'];
-        return ['broadcast'];
+        return ['database', 'broadcast'];
     }
 
     /**
@@ -46,11 +44,28 @@ class NewPost extends Notification
 
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
-        return new BroadcastMessage([
+        Log::info('notification printed');
+        Log::info($notifiable);
+        $data = [
+            'created_at' => now(),
+            'data' => [
+                'post_id' => $this->post?->id,
+                'title'   => 'New post: ' . $this->post?->title ?? 'New post',
+                'message' => 'A new post was published by ' . $this->post?->creator?->name,
+            ]
+        ];
+        return new BroadcastMessage($data);
+    }
+
+    // the array will be stored in data column of the notification table
+    public function toDatabase($notifiable)
+    {
+        Log::info('storing notification');
+        return [
             'post_id' => $this->post?->id,
-            'title'   => $this->post?->title ?? 'New post',
+            'title'   => 'New post: ' . $this->post?->title ?? 'New post',
             'message' => 'A new post was published by ' . $this->post?->creator?->name,
-        ]);
+        ];
     }
 
     /**
@@ -58,10 +73,8 @@ class NewPost extends Notification
      *
      * @return array<string, mixed>
      */
-    public function toArray(object $notifiable): array
-    {
-        return [
-            //
-        ];
-    }
+    // public function toArray(object $notifiable): array
+    // {
+    //     return [];
+    // }
 }
