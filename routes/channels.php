@@ -37,8 +37,7 @@ Broadcast::channel('global_chat', function ($user) {
 
 // notification channel for each user
 Broadcast::channel('notification.{userId}', function ($user, $userId) {
-    Log::info($user->id.' '. $userId);
+    Log::info($user->id . ' ' . $userId);
     Log::info($user->id == $userId);
     return $user->id == $userId;
 }, ['guards' => ['web']]);
- 

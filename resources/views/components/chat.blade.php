@@ -24,29 +24,57 @@
                     </span>
                 </div>
 
-                <div class="flex w-full mb-2"
-                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
-                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
+                <div class="flex w-full mb-2 group"
+                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'"
+                    x-intersect.once.threshold.50="handleIntersect(msg.id,msg)">
+                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm relative transition-all"
                         :class="msg.sender_id === currentUserId ?
                             'bg-indigo-600 text-white rounded-br-none' :
                             'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
 
-                        <template x-if="msg.media_path">
+                        <template x-if="msg.media_path" x-text="console.log('media rendered');">
                             <div class="mb-2">
                                 <a :href="msg.media_path" target="_blank" class="block">
                                     <img :src="msg.media_path"
-                                        class="rounded-lg object-cover 
-                                        w-48 h-32 md:w-64 md:h-40       border"
+                                        class="rounded-lg object-cover w-48 h-32 md:w-64 md:h-40 border"
                                         :class="msg.sender_id === currentUserId ? 'border-indigo-500' : 'border-gray-200'"
-                                        alt="Attachment" onerror="">
+                                        alt="Attachment">
                                 </a>
                             </div>
                         </template>
+
                         <template x-if="msg.message">
-                            <p x-text="msg.message" class="leading-relaxed"></p>
+                            <p x-text="msg.message" class="leading-relaxed mr-4"></p>
                         </template>
-                        <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
-                        </span>
+
+                        <div class="flex items-center justify-end gap-1 mt-1 select-none">
+
+                            <span class="text-[10px] opacity-70" x-text="formatTime(msg.created_at)"></span>
+
+                            <template x-if="msg.sender_id === currentUserId">
+                                <div class="flex items-center">
+                                    <template x-if="msg.read_at">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                                            class="w-3.5 h-3.5 text-blue-300">
+                                            <path fill-rule="evenodd"
+                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
+                                                clip-rule="evenodd" />
+                                            <path
+                                                d="M10.958 10.093l.036-.057 4.29-6.435a.75.75 0 011.248.832l-4.29 6.435-1.284-.775z" />
+                                        </svg>
+                                    </template>
+
+                                    <template x-if="!msg.read_at">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                                            class="w-3.5 h-3.5 text-gray-300 opacity-70">
+                                            <path fill-rule="evenodd"
+                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -124,6 +152,9 @@
             typingTimeout: null,
             isTyping: false,
             typingUser: '',
+            isConversationLoading: false,
+            readMessages: [],
+            timer: null,
 
             // init run every time the conversationId changes when selecting a new user because chat component flushed when conversationId is set to null and re iniatlize when conversationId is set to new value otherwise init called only once when component initializes
             init() {
@@ -147,6 +178,65 @@
                         }
                     });
                 });
+            },
+
+            handleIntersect(messageId, msg) {
+                this.$nextTick(() => {
+                    if (!this.isConversationLoading && msg.sender_id !== this.currentUserId && !msg.read_at) {
+                        this.markAsRead(messageId, msg.message);
+                    }
+                });
+
+            },
+
+            markAsRead(messageId, chat) {
+                console.log(messageId, chat);
+                this.readMessages.push({
+                    'messageId': messageId,
+                    'read_at': new Date().toISOString()
+                });
+                console.log(new Date());
+
+                console.log('length is' + this.readMessages.length);
+
+                if (this.readMessages.length) {
+                    if (this.timer == null) {
+                        console.log('timer is null');
+
+                        this.timer = setTimeout(() => {
+                            this.sendMarkAsReadRequests();
+                        }, 2000);
+                    } else {
+                        console.log('timer exists');
+                    }
+                }
+            },
+
+            sendMarkAsReadRequests() {
+                this.timer = null;
+                let payload = {
+                    messages: this.readMessages,
+                    headers: {
+                        'X-Socket-ID': window.Echo.socketId()
+                    }
+                };
+                this.readMessages = []; // Clear immediately to prevent duplicate calls
+
+                axios.post("{{ route('chat.mark.read') }}", payload)
+                    .then(response => {
+                        console.log('read done');
+
+                        // this.readMessages.forEach(item => {
+                        //     const message = this.messages.find(m => m.id === item.messageId);
+                        //     if (message) {
+                        //         message.read_at = item.read_at;
+                        //     }
+                        // });
+                        // this.readMessages = [];
+                    })
+                    .catch(error => {
+                        console.error("Failed to mark messages as read", error);
+                    });
             },
 
             // called when parent's custom event triggered
@@ -182,9 +272,19 @@
                         this.$dispatch('set-lastMessage', {
                             receivers: e.receivers,
                             sender_id: e.sender_id,
-                            message: e.message
+                            message: e.message,
+                            media_path: e.media_path
                         });
                         this.scrollToBottom();
+                    }).listen('.chat.message.read', (e) => {
+                        console.log('message read event received', e);
+                        this.messages = this.messages.map(function(message) {
+                            return message.id === e.id ? {
+                                ...message,
+                                read_at: e.read_at
+                            } : message;
+                        });
+
                     }).listenForWhisper('typing', (e) => {
                         this.typingUser = e.name;
                         this.isTyping = true;
@@ -201,15 +301,19 @@
             },
 
             fetchMessages() {
+                this.isConversationLoading = true;
+                // this.scrollToBottom();
                 axios.get(`/chats/${this.conversationId}/messages`)
                     .then(response => {
                         this.messages = response.data.messages || response.data;
                         this.isLoading = false;
                         this.scrollToBottom();
+                        this.isConversationLoading = false;
                     })
                     .catch(error => {
                         console.error(error);
                         this.isLoading = false;
+                        this.isConversationLoading = false;
                     });
             },
 
@@ -291,6 +395,19 @@
                     hour: '2-digit',
                     minute: '2-digit'
                 });
+            },
+
+            debounce(func, delay = 300) {
+                let timer;
+                return (...args) => {
+                    if (!timer) {
+                        func.apply(this, args);
+                    }
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        timer = undefined;
+                    }, delay);
+                };
             }
         }
     }

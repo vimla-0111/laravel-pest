@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,7 +17,7 @@ class Conversation extends Model
         return $this->belongsToMany(User::class, 'conversation_users');
     }
 
-    public function getReceiverAttribute() : BelongsToMany
+    public function getReceiverAttribute() : Collection
     {
         // Return the first user who is NOT the logged-in user
         return $this->users->where('id', '!=', auth()->id());

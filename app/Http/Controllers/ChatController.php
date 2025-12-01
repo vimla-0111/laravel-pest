@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ChatRead;
 use App\Events\SentPrivateMessage;
+use App\Models\Chat;
 use App\Models\Conversation;
 use App\Models\ConversationUser;
 use App\Models\User;
@@ -13,7 +15,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Traits\Helper;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class ChatController extends Controller
@@ -85,7 +89,7 @@ class ChatController extends Controller
         return response()->json(['messages' => $messages]);
     }
 
-    public function sendConversationMessages(Request $request, $conversation_id): JsonResponse
+    public function sendConversationMessages(Request $request, string $conversation_id): JsonResponse
     {
         $request->validate([
             'body' => ['nullable', 'required_without:image', 'string', 'max:255'],
@@ -124,5 +128,31 @@ class ChatController extends Controller
             dd($th);
             return response()->json(status: 500);
         }
+    }
+
+    public function markChatAsRead(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'messages.*.messageId' => 'required|integer|exists:chats,id',
+            'messages.*.read_at' => 'required|date'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 400);
+        }
+
+        foreach ($request['messages'] as $message) {
+            $chat = Chat::find($message['messageId']);
+            Log::info('Marking chat as read: ' . $chat->id . ' at ' . $message['read_at']);
+            if ($chat) {
+                $chat->read_at = Carbon::parse($message['read_at']);
+                $chat->save();
+                broadcast(new ChatRead($chat))->toOthers();
+                // $chat->update(['read_at' => Carbon::parse($message['read_at'])]);
+                // broadcast(new ChatRead($chat->refresh()));
+            }
+        }
+
+        return response()->json(['success' => true]);
     }
 }

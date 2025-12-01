@@ -113,14 +113,18 @@
                         // Listen for event ONLY inside parent component
                         this.$root.addEventListener('set-lastMessage', (e) => {
                             console.log('new message received:', e.detail.message);
+                            console.log('media received:', e.detail.media_path);
+
                             // this.lastMessage = e.detail; // update parent property
 
                             this.users = this.users.map(user => {
                                 if (e.detail.receivers.includes(user.id) || user.id == e
                                     .detail
                                     .sender_id) {
-                                    user.last_message = e.detail
-                                        .message; // Update immediately
+                                    user.last_message = e.detail.media_path ? 'media' : (e
+                                        .detail
+                                        .message ? e.detail
+                                        .message : null); // Update immediately
                                 }
                                 return user;
                             });
@@ -135,6 +139,8 @@
                      * @param {number} userId - The ID of the user to chat with.
                      */
                     selectUser(userId) {
+                        console.log('change user');
+                        
                         if (this.selectedUserId === userId) return;
 
                         this.selectedUserId = userId;
