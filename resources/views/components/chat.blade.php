@@ -1,4 +1,4 @@
-@props(['conversationId', 'currentUserId'])
+@props(['conversationId', 'currentUserId', 'selectedUserId'])
 
 <div x-data="chatComponent(conversationId)" @conversation-id.window="handleConversationChange($event.detail.id)"
     class="flex flex-col h-full w-full bg-white">
@@ -32,7 +32,7 @@
                             'bg-indigo-600 text-white rounded-br-none' :
                             'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
 
-                        <template x-if="msg.media_path" x-text="console.log('media rendered');">
+                        <template x-if="msg.media_path">
                             <div class="mb-2">
                                 <a :href="msg.media_path" target="_blank" class="block">
                                     <img :src="msg.media_path"
@@ -155,10 +155,12 @@
             isConversationLoading: false,
             readMessages: [],
             timer: null,
+            unreadCount: 0,
 
             // init run every time the conversationId changes when selecting a new user because chat component flushed when conversationId is set to null and re iniatlize when conversationId is set to new value otherwise init called only once when component initializes
             init() {
                 console.log('init conversation');
+
                 if (this.conversationId) {
                     this.setupConversation();
                 }
@@ -195,7 +197,6 @@
                     'messageId': messageId,
                     'read_at': new Date().toISOString()
                 });
-                console.log(new Date());
 
                 console.log('length is' + this.readMessages.length);
 
@@ -225,14 +226,6 @@
                 axios.post("{{ route('chat.mark.read') }}", payload)
                     .then(response => {
                         console.log('read done');
-
-                        // this.readMessages.forEach(item => {
-                        //     const message = this.messages.find(m => m.id === item.messageId);
-                        //     if (message) {
-                        //         message.read_at = item.read_at;
-                        //     }
-                        // });
-                        // this.readMessages = [];
                     })
                     .catch(error => {
                         console.error("Failed to mark messages as read", error);
@@ -273,7 +266,8 @@
                             receivers: e.receivers,
                             sender_id: e.sender_id,
                             message: e.message,
-                            media_path: e.media_path
+                            media_path: e.media_path,
+                            created_at: e.created_at
                         });
                         this.scrollToBottom();
                     }).listen('.chat.message.read', (e) => {
@@ -281,8 +275,17 @@
                         this.messages = this.messages.map(function(message) {
                             return message.id === e.id ? {
                                 ...message,
-                                read_at: e.read_at
+                                read_at: e.read_at,
                             } : message;
+                        });
+
+
+                        this.unreadCount = this.messages.filter(m => !m.read_at &&
+                            m.sender_id != this.currentUserId
+                        ).length;
+
+                        this.$dispatch('set-unreadCount', {
+                            unreadCount: this.unreadCount
                         });
 
                     }).listenForWhisper('typing', (e) => {
@@ -323,6 +326,7 @@
                 const formData = new FormData();
                 formData.append('body', this.newMessage)
                 formData.append('image', this.selectedImage);
+                formData.append('selectedUserId', this.selectedUserId);
 
                 this.newMessage = ''; // Clear input immediately    
                 this.removeImage(); // Clear selected image immediately

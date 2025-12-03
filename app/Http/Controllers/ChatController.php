@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\ChatRead;
 use App\Events\SentPrivateMessage;
+use App\Events\UserConversation;
 use App\Models\Chat;
 use App\Models\Conversation;
 use App\Models\ConversationUser;
@@ -28,33 +29,20 @@ class ChatController extends Controller
 
     public function index(): View
     {
-        // dd(Auth::user()->conversations()->get());
-        // $users = User::with(['conversations.latestMessage'])
-        //     ->where('role', User::CUSTOMER_ROLE)
-        //     ->whereNot('id', auth()->user()->id)
-        //     ->get(['id','name']);
+        $users = $this->chatService->getUsersList(Auth::user());
 
-        // dd(auth()->user()->id,$users->toArray());
-
-        $conversationIds = Auth::user()->conversations()->pluck('conversations.id');
-        $users = User::isCustomer()
-            ->whereNot('id', auth()->user()->id)
-            ->with([
-                'conversations' => function ($q) use ($conversationIds) {
-                    return $q->whereIn('conversations.id', $conversationIds)
-                        ->with('latestMessage');
-                }
-            ])
-            ->get(['id', 'name'])
-            ->map(function ($user) {
-                $convo = $user->conversations->first();
-                $user->last_message = $convo?->latestMessage?->media_path ? 'media' :  $convo?->latestMessage?->message ?? null;
-                return $user;
-            });
-
+        // dd($users->toArray());
         return view('chat_page', ['users' => $users]);
     }
+    
+    public function getFilteredUsersList(Request $request): JsonResponse
+    {
+        $searchedValue = $request->input('searchTerm', null);
+        $users = $this->chatService->getUsersList(Auth::user(), $searchedValue);
 
+        return response()->json(['users' => $users]);
+    }
+    
     public function createConversation(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), ['recipient_id' => 'required']);
@@ -120,6 +108,9 @@ class ChatController extends Controller
             // Broadcast the message to the conversation channel
             broadcast(new SentPrivateMessage($chat));
 
+            $data = $this->chatService->getUpdatedUserConversation($conversation_id);
+            broadcast(new UserConversation($request->selectedUserId, $data));
+
             return response()->json($chat);
         } catch (\Throwable $th) {
             //throw $th;
@@ -148,11 +139,31 @@ class ChatController extends Controller
                 $chat->read_at = Carbon::parse($message['read_at']);
                 $chat->save();
                 broadcast(new ChatRead($chat))->toOthers();
-                // $chat->update(['read_at' => Carbon::parse($message['read_at'])]);
-                // broadcast(new ChatRead($chat->refresh()));
             }
         }
 
         return response()->json(['success' => true]);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // $user = User::isCustomer()
+        //     ->whereNot('users.id', auth()->user()->id)
+        //     ->join('chats', 'chats.sender_id', '=', 'users.id')
+        //     ->where('chats.sender_id', '!=', auth()->id())
+        //     ->whereIn('chats.conversation_id', $conversationIds)
+        //     ->select('users.*')
+        //     ->groupBy('chats.conversation_id')
+        //     ->toRawSql();

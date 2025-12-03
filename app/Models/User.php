@@ -67,7 +67,7 @@ class User extends Authenticatable
 
     public function conversations(): BelongsToMany
     {
-        return $this->belongsToMany(Conversation::class, 'conversation_users');
+        return $this->belongsToMany(Conversation::class, 'conversation_users')->withPivot('user_id', 'conversation_id');
     }
 
     public function chats(): HasMany
@@ -80,8 +80,13 @@ class User extends Authenticatable
         return 'notification.' . $this->id;
     }
 
-    public function scopeIsCustomer($query) : Builder
+    public function scopeIsCustomer($query): Builder
     {
         return $query->where('role', self::CUSTOMER_ROLE);
+    }
+
+    public function conversationChats()
+    {
+        return $this->hasMany(Chat::class, 'conversation_id');
     }
 }

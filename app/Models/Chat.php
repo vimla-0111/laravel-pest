@@ -15,6 +15,7 @@ class Chat extends Model
         'sender_id',
         'message',
         'media_path',
+        'read_at'
     ];
 
     public function sender(): BelongsTo
