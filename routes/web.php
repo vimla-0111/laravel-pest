@@ -1,18 +1,18 @@
 <?php
 
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
+    // return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [HomeController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('/performance-statistics', function () {
     return view('vendor.pulse.dashboard');
@@ -35,6 +35,12 @@ Route::middleware('auth:web')->group(function () {
     Route::post('/chat/access', [ChatController::class, 'createConversation'])->name('chat.create');
     Route::get('/chats/{conversation_id}/messages', [ChatController::class, 'getConversationMessages'])->name('chat.messages');
     Route::post('/chats/{conversation_id}/messages', [ChatController::class, 'sendConversationMessages'])->name('chat.send.messages');
+    Route::post('/chats/messages/read', [ChatController::class, 'markChatAsRead'])->name('chat.mark.read');
+    Route::post('/chats/messages/read', [ChatController::class, 'markChatAsRead'])->name('chat.mark.read');
+    Route::get('/chats/users/filter', [ChatController::class, 'getFilteredUsersList'])->name('chat.users.filter');
+
+
+
 
     // Notifications
     Route::delete('/notifications/{id}', function ($id) {

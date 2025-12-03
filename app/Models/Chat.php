@@ -15,6 +15,7 @@ class Chat extends Model
         'sender_id',
         'message',
         'media_path',
+        'read_at'
     ];
 
     public function sender(): BelongsTo
@@ -27,7 +28,7 @@ class Chat extends Model
         return $this->belongsTo(Conversation::class);
     }
 
-    public function getMediaPathAttribute()
+    public function getMediaPathAttribute() : ?string
     {
         if ($this->attributes['media_path']) {
             return $this->getImageUrl($this->attributes['media_path']);

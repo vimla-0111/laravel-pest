@@ -1,42 +1,4 @@
-{{-- @props(['conversationId', 'currentUserId'])
-
-<div x-data="chatComponent(conversationId)" x-init="initEcho();
-fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
-    class="flex flex-col h-full">
-    <div x-ref="scrollBox" class="flex-grow p-4 space-y-3 overflow-y-auto bg-gray-50">
-        <template x-for="msg in messages" :key="msg.id">
-            <div class="flex" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
-                <div class="max-w-xs p-3 rounded-lg shadow"
-                    :class="msg.sender_id === currentUserId ? 'bg-indigo-500 text-white' : 'bg-white text-gray-800'">
-                    <p x-text="msg.message"></p>
-                    <span class="text-xs opacity-75 mt-1 block text-right"
-                        x-text="new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})">
-                    </span>
-                </div>
-            </div>
-        </template>
-    </div>
-
-    <div class="p-4 bg-white border-t">
-        <div class="flex">
-            <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
-                placeholder="Type your message..."
-                class="flex-grow border border-gray-300 rounded-l-lg p-3 focus:ring-indigo-500 focus:border-indigo-500"
-                :disabled="!conversationId">
-            <button @click="sendMessage" :disabled="!conversationId || newMessage.trim() === ''"
-                class="bg-indigo-600 text-white px-6 rounded-r-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-150">
-                Send
-            </button>
-        </div>
-    </div>
-</div> --}}
-
-
-
-
-
-
-@props(['conversationId', 'currentUserId'])
+@props(['conversationId', 'currentUserId', 'selectedUserId'])
 
 <div x-data="chatComponent(conversationId)" @conversation-id.window="handleConversationChange($event.detail.id)"
     class="flex flex-col h-full w-full bg-white">
@@ -52,20 +14,6 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             class="flex justify-center items-center h-full text-gray-400 text-sm">
             No messages yet. Say hello!
         </div>
-        {{-- <template x-for="msg in messages" :key="msg.id">
-            <div class="flex w-full" :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
-                <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
-                    :class="msg.sender_id === currentUserId ?
-                        'bg-indigo-600 text-white rounded-br-none' :
-                        'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
-
-                    <p x-text="msg.message" class="leading-relaxed"></p>
-
-                    <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
-                    </span>
-                </div>
-            </div>
-        </template> --}}
 
         <template x-for="(msg, index) in messages" :key="msg.id">
             <div class="w-full flex flex-col">
@@ -76,9 +24,10 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                     </span>
                 </div>
 
-                <div class="flex w-full mb-2"
-                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
-                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm"
+                <div class="flex w-full mb-2 group"
+                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'"
+                    x-intersect.once.threshold.50="handleIntersect(msg.id,msg)">
+                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm relative transition-all"
                         :class="msg.sender_id === currentUserId ?
                             'bg-indigo-600 text-white rounded-br-none' :
                             'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
@@ -87,42 +36,51 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                             <div class="mb-2">
                                 <a :href="msg.media_path" target="_blank" class="block">
                                     <img :src="msg.media_path"
-                                        class="rounded-lg object-cover 
-                                        w-48 h-32 md:w-64 md:h-40       border"
+                                        class="rounded-lg object-cover w-48 h-32 md:w-64 md:h-40 border"
                                         :class="msg.sender_id === currentUserId ? 'border-indigo-500' : 'border-gray-200'"
-                                        alt="Attachment" onerror="">
+                                        alt="Attachment">
                                 </a>
                             </div>
                         </template>
+
                         <template x-if="msg.message">
-                            <p x-text="msg.message" class="leading-relaxed"></p>
+                            <p x-text="msg.message" class="leading-relaxed mr-4"></p>
                         </template>
-                        <span class="block text-[10px] mt-1 opacity-70 text-right" x-text="formatTime(msg.created_at)">
-                        </span>
+
+                        <div class="flex items-center justify-end gap-1 mt-1 select-none">
+
+                            <span class="text-[10px] opacity-70" x-text="formatTime(msg.created_at)"></span>
+
+                            <template x-if="msg.sender_id === currentUserId">
+                                <div class="flex items-center">
+                                    <template x-if="msg.read_at">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                                            class="w-3.5 h-3.5 text-blue-300">
+                                            <path fill-rule="evenodd"
+                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
+                                                clip-rule="evenodd" />
+                                            <path
+                                                d="M10.958 10.093l.036-.057 4.29-6.435a.75.75 0 011.248.832l-4.29 6.435-1.284-.775z" />
+                                        </svg>
+                                    </template>
+
+                                    <template x-if="!msg.read_at">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                                            class="w-3.5 h-3.5 text-gray-300 opacity-70">
+                                            <path fill-rule="evenodd"
+                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
         </template>
-
-
     </div>
 
-    {{-- <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
-        <div class="relative flex items-center">
-            <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
-                @keydown.debounce.1000ms="startTyping" placeholder="Type your message..."
-                class="w-full bg-gray-100 border-0 rounded-full py-3 pl-5 pr-12 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                :disabled="!conversationId || isLoading">
-
-            <button @click="sendMessage" :disabled="!conversationId || newMessage.trim() === ''"
-                class="absolute right-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors">
-                <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                </svg>
-            </button>
-        </div>
-    </div> --}}
     <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
         <div x-data="{
             selectedImage: '',
@@ -153,15 +111,12 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 :disabled="!conversationId || isLoading">
 
             <!-- IMAGE PICK BUTTON -->
-            <!-- PLUS (+) PICK BUTTON -->
             <button @click="pickImage"
                 class="absolute left-3 p-1 text-indigo-600 bg-indigo-100 rounded-full hover:bg-indigo-200 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
             </button>
-
-
 
             <!-- SEND BUTTON -->
             <button @click="sendMessage" :disabled="(!conversationId) || (!newMessage.trim() && !selectedImage)"
@@ -173,7 +128,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 </svg>
             </button>
 
-            <!-- IMAGE PREVIEW (like WhatsApp) -->
+            <!-- IMAGE PREVIEW -->
             <template x-if="previewUrl">
                 <div class="absolute -top-24 left-0 bg-white shadow-lg rounded-lg overflow-hidden p-2 w-32">
                     <img :src="previewUrl" class="rounded-md w-full h-auto">
@@ -197,10 +152,15 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             typingTimeout: null,
             isTyping: false,
             typingUser: '',
+            isConversationLoading: false,
+            readMessages: [],
+            timer: null,
+            unreadCount: 0,
 
             // init run every time the conversationId changes when selecting a new user because chat component flushed when conversationId is set to null and re iniatlize when conversationId is set to new value otherwise init called only once when component initializes
             init() {
                 console.log('init conversation');
+
                 if (this.conversationId) {
                     this.setupConversation();
                 }
@@ -220,6 +180,56 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                         }
                     });
                 });
+            },
+
+            handleIntersect(messageId, msg) {
+                this.$nextTick(() => {
+                    if (!this.isConversationLoading && msg.sender_id !== this.currentUserId && !msg.read_at) {
+                        this.markAsRead(messageId, msg.message);
+                    }
+                });
+
+            },
+
+            markAsRead(messageId, chat) {
+                console.log(messageId, chat);
+                this.readMessages.push({
+                    'messageId': messageId,
+                    'read_at': new Date().toISOString()
+                });
+
+                console.log('length is' + this.readMessages.length);
+
+                if (this.readMessages.length) {
+                    if (this.timer == null) {
+                        console.log('timer is null');
+
+                        this.timer = setTimeout(() => {
+                            this.sendMarkAsReadRequests();
+                        }, 2000);
+                    } else {
+                        console.log('timer exists');
+                    }
+                }
+            },
+
+            sendMarkAsReadRequests() {
+                this.timer = null;
+                let payload = {
+                    messages: this.readMessages,
+                    headers: {
+                        'X-Socket-ID': window.Echo.socketId()
+                    }
+                };
+                this.readMessages = []; // Clear immediately to prevent duplicate calls
+
+                axios.post("{{ route('chat.mark.read') }}", payload)
+                    .then(response => {
+                        console.log('read done');
+                    })
+                    .catch(error => {
+                        console.error("Failed to mark messages as read", error);
+                    });
             },
 
             // called when parent's custom event triggered
@@ -255,9 +265,29 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                         this.$dispatch('set-lastMessage', {
                             receivers: e.receivers,
                             sender_id: e.sender_id,
-                            message: e.message
+                            message: e.message,
+                            media_path: e.media_path,
+                            created_at: e.created_at
                         });
                         this.scrollToBottom();
+                    }).listen('.chat.message.read', (e) => {
+                        console.log('message read event received', e);
+                        this.messages = this.messages.map(function(message) {
+                            return message.id === e.id ? {
+                                ...message,
+                                read_at: e.read_at,
+                            } : message;
+                        });
+
+
+                        this.unreadCount = this.messages.filter(m => !m.read_at &&
+                            m.sender_id != this.currentUserId
+                        ).length;
+
+                        this.$dispatch('set-unreadCount', {
+                            unreadCount: this.unreadCount
+                        });
+
                     }).listenForWhisper('typing', (e) => {
                         this.typingUser = e.name;
                         this.isTyping = true;
@@ -274,15 +304,19 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
             },
 
             fetchMessages() {
+                this.isConversationLoading = true;
+                // this.scrollToBottom();
                 axios.get(`/chats/${this.conversationId}/messages`)
                     .then(response => {
                         this.messages = response.data.messages || response.data;
                         this.isLoading = false;
                         this.scrollToBottom();
+                        this.isConversationLoading = false;
                     })
                     .catch(error => {
                         console.error(error);
                         this.isLoading = false;
+                        this.isConversationLoading = false;
                     });
             },
 
@@ -292,6 +326,7 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                 const formData = new FormData();
                 formData.append('body', this.newMessage)
                 formData.append('image', this.selectedImage);
+                formData.append('selectedUserId', this.selectedUserId);
 
                 this.newMessage = ''; // Clear input immediately    
                 this.removeImage(); // Clear selected image immediately
@@ -364,6 +399,19 @@ fetchMessages();" @conversation-id.window="initChatComponent($event.detail.id)"
                     hour: '2-digit',
                     minute: '2-digit'
                 });
+            },
+
+            debounce(func, delay = 300) {
+                let timer;
+                return (...args) => {
+                    if (!timer) {
+                        func.apply(this, args);
+                    }
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        timer = undefined;
+                    }, delay);
+                };
             }
         }
     }

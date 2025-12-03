@@ -3,11 +3,11 @@
 use App\Models\Post;
 use App\Models\User;
 
-test('example', function () {
-    $response = $this->get('/');
+// test('example', function () {
+//     $response = $this->get('/');
 
-    $response->assertStatus(200);
-});
+//     $response->assertStatus(200);
+// });
 
 test('visit the home page', function () {
     $page = visit('/');
@@ -39,7 +39,7 @@ it('may log in the user', function () {
         ->fill('password', 'password')
         ->click('Log in')
         ->assertSee('Dashboard')
-        ->assertSee('You\'re logged in!');
+        ->assertSee('Latest Posts');
 
     $this->assertAuthenticated();
 });

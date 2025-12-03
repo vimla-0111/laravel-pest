@@ -28,8 +28,8 @@ Broadcast::channel('chat.{conversation_id}', function ($user, $conversation_id) 
 // We use a 'presence' channel (indicated by the join logic in frontend)
 Broadcast::channel('global_chat', function ($user) {
     // Return the user info you want visible to others in the "here" method
-    // if ($user->role = User::CUSTOMER_ROLE && $user->email_verified_at) {
-    if ($user->role = User::CUSTOMER_ROLE) {
+    // if ($user->role == User::CUSTOMER_ROLE && $user->email_verified_at) {
+    if ($user->role == User::CUSTOMER_ROLE) {
         return ['id' => $user->id, 'name' => $user->name];
     }
     return false;
@@ -37,8 +37,17 @@ Broadcast::channel('global_chat', function ($user) {
 
 // notification channel for each user
 Broadcast::channel('notification.{userId}', function ($user, $userId) {
-    Log::info($user->id.' '. $userId);
+    Log::info($user->id . ' ' . $userId);
     Log::info($user->id == $userId);
     return $user->id == $userId;
 }, ['guards' => ['web']]);
- 
+
+
+Broadcast::channel('users.{user_id}', function ($user) {
+    // Return the user info you want visible to others in the "here" method
+    // if ($user->role = User::CUSTOMER_ROLE && $user->email_verified_at) {
+    if ($user->role = User::CUSTOMER_ROLE) {
+        return ['id' => $user->id, 'name' => $user->name];
+    }
+    return false;
+}, ['guards' => ['web']]);

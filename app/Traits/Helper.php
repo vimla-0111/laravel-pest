@@ -21,7 +21,7 @@ trait Helper
     }
 
     const MEDIA_PATH = 'media/';
-    public function storeMedia($file)
+    public function storeMedia($file) : string
     {
         if (!Storage::disk('public')->exists(self::MEDIA_PATH)) {
             Storage::disk('public')->makeDirectory(self::MEDIA_PATH);
@@ -42,7 +42,7 @@ trait Helper
         return self::MEDIA_PATH . $filename;
     }
 
-    public function getImageUrl($storedName)
+    public function getImageUrl($storedName) : string
     {
         // return storage::disk('local')->url($storedName);
         return Storage::disk('local')->temporaryUrl($storedName, now()->addMinutes(1));

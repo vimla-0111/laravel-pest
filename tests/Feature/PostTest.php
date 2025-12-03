@@ -31,10 +31,17 @@ function actAsCustomer(?User $user = null): TestCase
 
 // beforeEach(fn() => Post::factory()->create());          // Hooks example
 
-test('example', function () {
-    $response = $this->get('/');
+test('redirect to dashboard', function () {
+    $response = actAsCustomer()->get('/');
+    $response->assertRedirect(route('dashboard'));
+    // $response->assertStatus(200);
+});
 
-    $response->assertStatus(200);
+
+test('redirect to login due to unauthenticated', function () {
+    $response =  $this->get('/');
+    $response->assertRedirect(route('login'));
+    // $response->assertStatus(200);
 });
 
 // describe('user can ', function () {

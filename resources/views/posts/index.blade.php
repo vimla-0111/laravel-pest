@@ -33,6 +33,9 @@
                             <tr>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Sr. No</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Title</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -40,16 +43,27 @@
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Published At</th>
-                                <th scope="col" class="relative px-6 py-3">
-                                    <span class="sr-only">Actions</span>
+                                {{-- <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions</th> --}}
+                                <th scope="col"
+                                    class="relative px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ">
+                                    Actions
                                 </th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             @forelse ($posts as $post)
                                 <tr>
+                                    <td>
+                                        <div class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {{ $loop->iteration + ($posts->currentPage() - 1) * $posts->perPage() }}
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {{ $post->title }}</td>
+                                        <a href="{{ route('posts.show', $post) }}"
+                                            class="text-indigo-600 hover:text-indigo-900 mr-4 edit-btn">{{ $post->title }}</a>
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ Str::limit($post->content, 50) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

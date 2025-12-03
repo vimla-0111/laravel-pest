@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Conversation extends Model
 {
@@ -15,10 +17,15 @@ class Conversation extends Model
         return $this->belongsToMany(User::class, 'conversation_users');
     }
 
-    public function getReceiverAttribute()
+    public function getReceiverAttribute(): Collection
     {
         // Return the first user who is NOT the logged-in user
         return $this->users->where('id', '!=', auth()->id());
+    }
+
+    public function receivers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'conversation_users')->wherePivot('user_id', '!=', auth()->id())->withPivot('user_id','conversation_id');
     }
 
     public function hasUser($user): bool
@@ -32,7 +39,7 @@ class Conversation extends Model
     }
 
     // This fetches the single latest message efficiently
-    public function latestMessage()
+    public function latestMessage(): HasOne
     {
         return $this->hasOne(Chat::class, 'conversation_id')->latestOfMany();
     }
