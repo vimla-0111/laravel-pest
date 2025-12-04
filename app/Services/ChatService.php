@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Chat;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Auth;
 
 class ChatService
 {
@@ -20,7 +19,7 @@ class ChatService
     public function getUpdatedUserConversation(string $conversationId): array
     {
 
-        $chat  = Chat::where('conversation_id', $conversationId);
+        $chat = Chat::where('conversation_id', $conversationId);
 
         if ($chat) {
             $unReadCount = $chat->whereNull('read_at')->count();
@@ -32,7 +31,7 @@ class ChatService
 
         $data = [
             'unReadCount' => $unReadCount,
-            'latestMessage' => $latestMessage
+            'latestMessage' => $latestMessage,
         ];
 
         return $data;
@@ -43,23 +42,25 @@ class ChatService
         $conversationIds = $user->conversations()->pluck('conversations.id');
 
         $users = User::isCustomer()
-            ->whereLike('name', '%' . $searchedValue . '%')
+            ->whereLike('name', '%'.$searchedValue.'%')
             ->whereNot('id', auth()->user()->id)
             ->withWhereHas(
                 'conversations',
                 function ($q) use ($conversationIds) {
-                    return $q->whereHas('chats')->whereIn('conversations.id', $conversationIds)
+                    return $q->whereIn('conversations.id', $conversationIds)
                         ->with('latestMessage');
                 }
             )
             ->withCount(['chats as unread_message_count' => function ($q) use ($conversationIds) {
                 return $q->where('sender_id', '!=', auth()->id())->whereIn('conversation_id', $conversationIds)->whereNull('read_at');
             }])
-            ->get(['id', 'name'])
+            // ->select(['id','name','unread_message_count'])
+            ->get(['id', 'name', 'unread_message_count'])
             ->map(function ($user) {
                 $convo = $user->conversations->first();
-                $user->last_message = $convo?->latestMessage?->media_path ? 'media' :  $convo?->latestMessage?->message ?? null;
+                $user->last_message = $convo?->latestMessage?->media_path ? 'media' : $convo?->latestMessage?->message ?? null;
                 $user->date = $convo?->latestMessage?->created_at;
+
                 // $user->unread_message_count = 0;
                 return $user;
             });
