@@ -9,12 +9,15 @@
     </x-slot>
 
     <div x-data="mainComponent" class="shadow-xl sm:rounded-lg flex h-[80vh] overflow-hidden">
-        <div class="w-1/4 border-r border-gray-200  h-screen overflow-y-auto flex flex-col" x-data="searchComponent">
+        <div class="w-1/4 border-r border-gray-200  h-screen overflow-y-auto flex flex-col" x-data="searchComponent"
+            @start-new-chat.window="handleNewChat($event)">
 
 
             <div class="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-10 h-16">
                 <h3 class="text-xl font-semibold text-gray-800">Chats</h3>
                 <div class="flex items-center space-x-3">
+
+                    <!-- Search Toggle -->
                     <button @click="toggleSearch()"
                         class="text-gray-500 hover:text-gray-800 focus:outline-none p-1 rounded-full hover:bg-gray-100 transition"
                         title="Search users">
@@ -24,10 +27,11 @@
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
-                    <button @click="showNewChatModal = true"
-                        class="text-gray-500 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full focus:outline-none transition duration-200 ease-in-out"
-                        title="Start New Conversation">
 
+                    <!-- New Conversation Button -->
+                    <button @click="showNewChatModal = true"
+                        class="text-black hover:bg-gray-100 p-2 rounded-full focus:outline-none transition duration-200 ease-in-out"
+                        title="Start New Conversation">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
@@ -67,7 +71,6 @@
             </div>
 
             <div class="divide-y divide-gray-100 flex-1 overflow-y-auto">
-                {{-- <h3 class="text-xl font-semibold p-4 border-b">Chats</h3> --}}
                 <template x-for="user in filteredUsers" :key="user.id">
                     <button @click="selectUser(user.id)"
                         class="w-full text-left p-4 flex items-center hover:bg-indigo-50 focus:outline-none border-b border-gray-100 transition duration-150 ease-in-out"
@@ -80,13 +83,13 @@
                             <div class="w-10 h-10 bg-gray-400 rounded-full flex-shrink-0 overflow-hidden">
                                 <img :src="user.avatar ||
                                     'https://ui-avatars.com/api/?name=' + user.name" alt="" class="w-full h-full object-cover">
-                        </div>
+                            </div>
 
-                        <span x-show="activeUserIds.includes(user.id)"
-                            x-transition.scale.origin.center
-                            class="absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-white bg-green-500">
-                        </span>
-                    </div>
+                            <span x-show="activeUserIds.includes(user.id)"
+                                x-transition.scale.origin.center
+                                class="absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-white bg-green-500">
+                            </span>
+                        </div>
 
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-center mb-1">
@@ -112,8 +115,6 @@
                     </div>
                 </template>
             </div>
-
-            <x-new-chat-modal x-bind-show-new-chat-modal="showNewChatModal" />
         </div>
 
         <div class="w-3/4 flex flex-col">
@@ -160,6 +161,7 @@
                 </div>
             </template>
         </div>
+        <x-new-chat-modal x-model="showNewChatModal" />
     </div>
     <x-slot name="scripts">
         <script>
@@ -176,6 +178,7 @@
                     // Loading state
                     isLoading: false,
                     activeUserIds: [], // Stores IDs of online users
+                    showNewChatModal: false,
 
                     init() {
                         // Listen for event ONLY inside parent component
@@ -183,6 +186,7 @@
                             console.log('new message received:', e.detail.message);
 
                             this.users = this.users.map(user => {
+                                // update the last message in users list
                                 if (e.detail.receivers.includes(user.id) || user.id == e
                                     .detail
                                     .sender_id) {
@@ -192,6 +196,7 @@
                                         .message : null); // Update immediately
                                 }
 
+                                // TODO : need to verify as it sorts the user list when new message sent/received
                                 if (e.detail.receivers.includes(user.id)) {
                                     user.date = e.detail.created_at
                                 }
@@ -202,6 +207,7 @@
                             console.log('user sorted ');
                         });
 
+                        // update the unread count when message read by the reciver
                         this.$root.addEventListener('set-unreadCount', (e) => {
                             this.users.find((u) => {
                                 if (this.selectedUserId == u.id) {
@@ -219,7 +225,7 @@
                     /** * Handles user selection and initiates the chat room process.
                      * @param {number} userId - The ID of the user to chat with.
                      */
-                    selectUser(userId) {
+                    selectUser(userId, user = null) {
                         if (this.selectedUserId === userId) return;
 
                         this.selectedUserId = userId;
@@ -240,6 +246,10 @@
                                     return user;
                                 });
 
+                                // update user list when start the new conversation
+                                if (user) {
+                                    this.users.unshift(user);
+                                }
                                 // Dispatch event so Child Component knows to update the data 
                                 // We wrap this in $nextTick to ensure the child component exists (after dom rendered) in DOM
                                 // this.$nextTick(() => {
@@ -297,9 +307,6 @@
                         // 2. Watch the 'search' variable. 
                         // This code runs ONLY when 'search' changes.
                         this.$watch('search', (value) => {
-                            console.log(
-                                'Filtering...'); // This will now only show ONCE per keypress
-
                             if (value === '') {
                                 this.filteredUsers = this.users;
                             } else {
@@ -321,47 +328,13 @@
                             this.search = '';
                         }
                     },
-                    // createNewConversation() {
-                    //     // Placeholder action: Replace this with logic to open a modal 
-                    //     // or navigate to a user selection view.
-                    //     alert('Opening new conversation modal...');
-                    // },
-                    /* Add these new properties to your existing x-data object */
 
-                    // // ... existing variables ...
-                    // showNewChatModal: false,
-                    // newChatSearch: '',
-
-                    // // This represents the list of all contacts you can start a chat with
-                    // availableContacts: [{
-                    //         id: 101,
-                    //         name: 'Alice Smith',
-                    //         avatar: ''
-                    //     },
-                    //     {
-                    //         id: 102,
-                    //         name: 'Bob Johnson',
-                    //         avatar: ''
-                    //     },
-                    //     // ... fetch this from your backend
-                    // ],
-
-                    // // Computed property (or function) to filter contacts in the modal
-                    // get filteredContacts() {
-                    //     if (this.newChatSearch === '') return this.availableContacts;
-                    //     return this.availableContacts.filter(contact =>
-                    //         contact.name.toLowerCase().includes(this.newChatSearch.toLowerCase())
-                    //     );
-                    // },
-
-                    // startNewChat(userId) {
-                    //     // Your logic to create a conversation or jump to existing one
-                    //     console.log("Starting chat with", userId);
-                    //     this.showNewChatModal = false;
-                    //     this.selectUser(userId); // Assuming selectUser handles the switching
-                    // }
-
-
+                    // Function to handle the event emitted by the Modal
+                    handleNewChat(e) {
+                        console.log("User selected from modal:", e.detail.user.id, e.detail.user.name);
+                        this.selectUser(e.detail.user.id, e.detail
+                        .user); // Reuse your existing logic to open the chat
+                    },
                 }));
 
             });

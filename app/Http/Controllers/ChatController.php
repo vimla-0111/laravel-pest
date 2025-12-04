@@ -10,15 +10,15 @@ use App\Models\Conversation;
 use App\Models\ConversationUser;
 use App\Models\User;
 use App\Services\ChatService;
+use App\Traits\Helper;
+use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use App\Traits\Helper;
-use Carbon\Carbon;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class ChatController extends Controller
@@ -34,7 +34,7 @@ class ChatController extends Controller
         // dd($users->toArray());
         return view('chat_page', ['users' => $users]);
     }
-    
+
     public function getFilteredUsersList(Request $request): JsonResponse
     {
         $searchedValue = $request->input('searchTerm', null);
@@ -42,7 +42,7 @@ class ChatController extends Controller
 
         return response()->json(['users' => $users]);
     }
-    
+
     public function createConversation(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), ['recipient_id' => 'required']);
@@ -58,22 +58,25 @@ class ChatController extends Controller
         })->with('latestMessage')
             ->first();
 
-        if (!$conversation) {
+        if (! $conversation) {
             $conversation = Conversation::create(['type' => 'private']);
             $conversation->users()->attach([$currrentUser->id, $request->recipient_id]);
             $conversation->load('latestMessage');
         }
 
-        return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->media_path ? 'media' :  $conversation?->latestMessage?->message ?? null]);
+        // $receiver = $conversation->users()->where('users.id', '!=', $currrentUser->id)->get(['users.id', 'users.name']);
+
+        return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->media_path ? 'media' : $conversation?->latestMessage?->message ?? null]);
     }
 
     public function getConversationMessages($conversation_id): JsonResponse
     {
         $conversation = Conversation::find($conversation_id);
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['messages' => []]);
         }
         $messages = $conversation->chats()->with('sender')->get();
+
         return response()->json(['messages' => $messages]);
     }
 
@@ -81,7 +84,7 @@ class ChatController extends Controller
     {
         $request->validate([
             'body' => ['nullable', 'required_without:image', 'string', 'max:255'],
-            'image' => ['nullable', 'required_without:body', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048']
+            'image' => ['nullable', 'required_without:body', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
         ]);
 
         try {
@@ -91,7 +94,7 @@ class ChatController extends Controller
             }
 
             $conversation = Conversation::find($conversation_id);
-            if (!$conversation) {
+            if (! $conversation) {
                 return response()->json(['error' => 'Conversation not found'], 404);
             }
 
@@ -99,7 +102,7 @@ class ChatController extends Controller
             $chat = $conversation->chats()->create([
                 'sender_id' => $request->user()->id,
                 'message' => $request->body,
-                'media_path' => $path
+                'media_path' => $path,
             ]);
             DB::commit();
 
@@ -113,10 +116,11 @@ class ChatController extends Controller
 
             return response()->json($chat);
         } catch (\Throwable $th) {
-            //throw $th;
+            // throw $th;
             DB::rollBack();
             $path ? unlink($path) : null;
             dd($th);
+
             return response()->json(status: 500);
         }
     }
@@ -125,7 +129,7 @@ class ChatController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'messages.*.messageId' => 'required|integer|exists:chats,id',
-            'messages.*.read_at' => 'required|date'
+            'messages.*.read_at' => 'required|date',
         ]);
 
         if ($validator->fails()) {
@@ -134,7 +138,7 @@ class ChatController extends Controller
 
         foreach ($request['messages'] as $message) {
             $chat = Chat::find($message['messageId']);
-            Log::info('Marking chat as read: ' . $chat->id . ' at ' . $message['read_at']);
+            Log::info('Marking chat as read: '.$chat->id.' at '.$message['read_at']);
             if ($chat) {
                 $chat->read_at = Carbon::parse($message['read_at']);
                 $chat->save();
@@ -144,26 +148,29 @@ class ChatController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    public function getUserForNewConversation()
+    {
+        $conversationIds = ConversationUser::where('user_id', auth()->id())->pluck('conversation_id');
+        $userIds = ConversationUser::whereNot('user_id', auth()->id())->whereIn('conversation_id', $conversationIds)->pluck('user_id');
+
+        // dd( $userIds->toRawSql());
+
+        $users = User::isCustomer()
+            ->whereNot('id', auth()->id())
+            ->whereNotIn('id', $userIds)
+            ->get(['id', 'name']);
+
+        return response()->json(['users' => $users]);
+        dd($conversationIds, $userIds);
+    }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // $user = User::isCustomer()
-        //     ->whereNot('users.id', auth()->user()->id)
-        //     ->join('chats', 'chats.sender_id', '=', 'users.id')
-        //     ->where('chats.sender_id', '!=', auth()->id())
-        //     ->whereIn('chats.conversation_id', $conversationIds)
-        //     ->select('users.*')
-        //     ->groupBy('chats.conversation_id')
-        //     ->toRawSql();
+// $user = User::isCustomer()
+//     ->whereNot('users.id', auth()->user()->id)
+//     ->join('chats', 'chats.sender_id', '=', 'users.id')
+//     ->where('chats.sender_id', '!=', auth()->id())
+//     ->whereIn('chats.conversation_id', $conversationIds)
+//     ->select('users.*')
+//     ->groupBy('chats.conversation_id')
+//     ->toRawSql();

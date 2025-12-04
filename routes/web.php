@@ -23,7 +23,7 @@ Route::middleware('auth:web')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    //post
+    // post
     Route::resource('posts', PostController::class);
 
     // Simple chat
@@ -36,24 +36,16 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/chats/{conversation_id}/messages', [ChatController::class, 'getConversationMessages'])->name('chat.messages');
     Route::post('/chats/{conversation_id}/messages', [ChatController::class, 'sendConversationMessages'])->name('chat.send.messages');
     Route::post('/chats/messages/read', [ChatController::class, 'markChatAsRead'])->name('chat.mark.read');
-    Route::post('/chats/messages/read', [ChatController::class, 'markChatAsRead'])->name('chat.mark.read');
     Route::get('/chats/users/filter', [ChatController::class, 'getFilteredUsersList'])->name('chat.users.filter');
-
-
-
+    Route::get('/chats/users', [ChatController::class, 'getUserForNewConversation'])->name('chat.users');
 
     // Notifications
     Route::delete('/notifications/{id}', function ($id) {
         auth()->user()->notifications()->find($id)->markAsRead();
+
         return response()->json(['success' => true]);
     });
 });
-
-
-
-
-
-
 
 // // Public routes (anyone can see)
 // Route::get('/posts', [PostController::class, 'index'])->name('post.index');
@@ -65,4 +57,4 @@ Route::middleware('auth:web')->group(function () {
 //     Route::put('/posts/{post}', [PostController::class, 'update'])->name('post.update');
 //     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('post.destroy');
 // });
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

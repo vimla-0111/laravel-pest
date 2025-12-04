@@ -44,8 +44,25 @@
                         </template>
 
                         <template x-if="msg.message">
-                            <p x-text="msg.message" class="leading-relaxed mr-4"></p>
+                            <div class="group flex items-center gap-2 relative">
+                                <p x-text="msg.message" class="leading-relaxed"></p>
+
+                                <button @click.stop="deleteMessage(msg.id)"
+                                    class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded-full hover:bg-black/10 text-gray-500 hover:text-red-600 focus:outline-none"
+                                    title="Delete Message">
+
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
                         </template>
+                        {{-- 
+                        <template x-if="msg.message">
+                            <p x-text="msg.message" class="leading-relaxed mr-4"></p>
+                        </template> --}}
 
                         <div class="flex items-center justify-end gap-1 mt-1 select-none">
 
@@ -271,7 +288,7 @@
                         });
                         this.scrollToBottom();
                     }).listen('.chat.message.read', (e) => {
-                        console.log('message read event received', e);
+                        console.log('message read event received');
                         this.messages = this.messages.map(function(message) {
                             return message.id === e.id ? {
                                 ...message,
@@ -336,6 +353,19 @@
                         console.error('Message failed:', error);
                         alert(error.response.data.message);
                     });
+            },
+            /* Inside your x-data object */
+
+            deleteMessage(messageId) {
+                if (confirm('Are you sure you want to delete this message?')) {
+                    // 1. Remove from local UI immediately for responsiveness
+                    this.messages = this.messages.filter(m => m.id !== messageId);
+
+                    // 2. Send request to backend (Example)
+                    // fetch(`/api/messages/${messageId}`, { method: 'DELETE' });
+
+                    console.log('Deleted message:', messageId);
+                }
             },
 
             startTyping() {
