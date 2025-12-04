@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ChatDeleted;
 use App\Events\ChatRead;
 use App\Events\SentPrivateMessage;
 use App\Events\UserConversation;
@@ -18,8 +19,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+
+use function Laravel\Prompts\info;
 
 class ChatController extends Controller
 {
@@ -138,7 +142,7 @@ class ChatController extends Controller
 
         foreach ($request['messages'] as $message) {
             $chat = Chat::find($message['messageId']);
-            Log::info('Marking chat as read: '.$chat->id.' at '.$message['read_at']);
+            Log::info('Marking chat as read: ' . $chat->id . ' at ' . $message['read_at']);
             if ($chat) {
                 $chat->read_at = Carbon::parse($message['read_at']);
                 $chat->save();
@@ -163,6 +167,36 @@ class ChatController extends Controller
 
         return response()->json(['users' => $users]);
         dd($conversationIds, $userIds);
+    }
+
+    public function deleteChat(Request $request): JsonResponse
+    {
+        // $request->dd();
+        $request->validate([
+            'conversation_id' => ['required', 'exists:conversations,id'],
+            'ids.*' => ['required', 'exists:chats,id']
+        ]);
+
+        try {
+            Log::info('delete chat event start');
+            broadcast(new ChatDeleted($request->ids, $request->conversation_id))->toOthers();
+        } catch (\Throwable $th) {
+            Log::info('error during broadcast chat delete event');
+            Log::info($th);
+        }
+
+        DB::transaction(function () use ($request) {
+            Chat::where('conversation_id', $request->conversation_id)->whereIn('id', $request->ids)->chunkById(10, function ($chats) {
+                foreach ($chats as $chat) {
+                    if ($chat->media_path) {
+                        Storage::delete($chat->media_path);
+                    }
+                    $chat->delete();
+                }
+            });
+        });
+
+        return response()->json(['message' => 'selected chat deleted']);
     }
 }
 
