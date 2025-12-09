@@ -17,26 +17,6 @@
             No messages yet. Say hello!
         </div>
 
-        {{-- 1. HEADER / TRIGGER BUTTON --}}
-        {{-- This button toggles the "Delete Mode". Place it in your top navbar. --}}
-        {{-- <div class="fixed top-20 right-4 z-[100]">
-            <button @click="toggleSelectionMode()"
-                class="group flex items-center justify-center w-12 h-12 bg-white rounded-full shadow-xl border border-gray-200 text-gray-600 hover:text-white hover:bg-indigo-600 transition-all duration-200"
-                :class="selectionMode ? 'bg-indigo-600 text-white ring-4 ring-indigo-200' : ''" title="Manage Messages">
-
-                <svg x-show="!selectionMode" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                    viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-
-                <svg x-cloak x-show="selectionMode" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                    viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div> --}}
-
         {{-- 2. FLOATING CONFIRMATION BAR --}}
         <div x-show="$store.chatSelection.active" x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="translate-y-full opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
@@ -82,7 +62,8 @@
                     </div>
 
                     <div class="flex w-full mb-2 transition-all duration-300"
-                        :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'">
+                        :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'"
+                        x-intersect.once.threshold.50="handleIntersect(msg.id,msg)">
 
                         {{-- CHECKBOX AREA (Slides in) --}}
                         <div x-show="$store.chatSelection.active" x-transition:enter="transition ease-out duration-300"
@@ -163,84 +144,6 @@
                 </div>
             </template>
         </div>
-
-        {{-- 
-        <template x-for="(msg, index) in messages" :key="msg.id">
-            <div class="w-full flex flex-col">
-
-                <div x-show="isNewDate(index)" class="flex justify-center my-4">
-                    <span x-text="formatDateLabel(msg.created_at)"
-                        class="text-[11px] font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                    </span>
-                </div>
-
-                <div class="flex w-full mb-2 group"
-                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'"
-                    x-intersect.once.threshold.50="handleIntersect(msg.id,msg)">
-                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm relative transition-all"
-                        :class="msg.sender_id === currentUserId ?
-                            'bg-indigo-600 text-white rounded-br-none' :
-                            'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
-
-                        <template x-if="msg.media_path">
-                            <div class="mb-2">
-                                <a :href="msg.media_path" target="_blank" class="block">
-                                    <img :src="msg.media_path"
-                                        class="rounded-lg object-cover w-48 h-32 md:w-64 md:h-40 border"
-                                        :class="msg.sender_id === currentUserId ? 'border-indigo-500' : 'border-gray-200'"
-                                        alt="Attachment">
-                                </a>
-                            </div>
-                        </template>
-
-                        <template x-if="msg.message">
-                            <div class="group flex items-center gap-2 relative">
-                                <p x-text="msg.message" class="leading-relaxed"></p>
-
-                                <button @click.stop="deleteMessage(msg.id)"
-                                    class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded-full hover:bg-black/10 text-gray-500 hover:text-red-600 focus:outline-none"
-                                    title="Delete Message">
-
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-                                        viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </template>
-                        <div class="flex items-center justify-end gap-1 mt-1 select-none">
-
-                            <span class="text-[10px] opacity-70" x-text="formatTime(msg.created_at)"></span>
-
-                            <template x-if="msg.sender_id === currentUserId">
-                                <div class="flex items-center">
-                                    <template x-if="msg.read_at">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                            class="w-3.5 h-3.5 text-blue-300">
-                                            <path fill-rule="evenodd"
-                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
-                                                clip-rule="evenodd" />
-                                            <path
-                                                d="M10.958 10.093l.036-.057 4.29-6.435a.75.75 0 011.248.832l-4.29 6.435-1.284-.775z" />
-                                        </svg>
-                                    </template>
-
-                                    <template x-if="!msg.read_at">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                            class="w-3.5 h-3.5 text-gray-300 opacity-70">
-                                            <path fill-rule="evenodd"
-                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
-                                                clip-rule="evenodd" />
-                                        </svg>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </template> --}}
     </div>
 
     <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
@@ -263,7 +166,7 @@
         }" class="relative flex items-center">
 
             <!-- HIDDEN FILE INPUT -->
-            <input type="file" accept="image/*" class="hidden" x-ref="fileInput" @change="handleImage">
+            <input type="file" multiple accept="image/*" class="hidden" x-ref="fileInput" @change="handleImage">
 
             <!-- MESSAGE INPUT -->
             <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"

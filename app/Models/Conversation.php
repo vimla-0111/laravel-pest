@@ -14,7 +14,7 @@ class Conversation extends Model
 
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'conversation_users');
+        return $this->belongsToMany(User::class, 'conversation_users')->withTimestamps();
     }
 
     public function getReceiverAttribute(): Collection

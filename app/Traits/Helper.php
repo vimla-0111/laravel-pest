@@ -3,12 +3,9 @@
 namespace App\Traits;
 
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
-
-use function Laravel\Prompts\info;
+use Spatie\ImageOptimizer\OptimizerChainFactory;
 
 trait Helper
 {
@@ -21,7 +18,8 @@ trait Helper
     }
 
     const MEDIA_PATH = 'media/';
-    public function storeMedia($file) : string
+
+    public function storeMedia($file): string
     {
         if (!Storage::disk('public')->exists(self::MEDIA_PATH)) {
             Storage::disk('public')->makeDirectory(self::MEDIA_PATH);
@@ -39,12 +37,31 @@ trait Helper
             'uploader_id' => Auth::id(),
         ]));
 
+        // compress image 
+        $optimizerChain = OptimizerChainFactory::create();
+        $optimizerChain->optimize(Storage::disk('local')->path(self::MEDIA_PATH . $filename)); // Optimizes the image in place
+        // Image::load(self::MEDIA_PATH . $filename)
+        //     ->optimize()
+        //     ->save(self::MEDIA_PATH . $filename); // store new optimized file
+
         return self::MEDIA_PATH . $filename;
     }
 
-    public function getImageUrl($storedName) : string
+    public function getImageUrl($storedName): string
     {
-        // return storage::disk('local')->url($storedName);
         return Storage::disk('local')->temporaryUrl($storedName, now()->addMinutes(1));
+    }
+
+    public function deleteMedia(?string $path): bool
+    {
+        if ($path) {
+            return unlink(Storage::path($path));
+        }
+        return false;
+    }
+
+    public function deleteMediaFromStorage(?string $path): void
+    {
+        Storage::delete($path);
     }
 }
