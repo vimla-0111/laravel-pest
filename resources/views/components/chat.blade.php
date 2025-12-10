@@ -5,6 +5,8 @@
     <div x-show="isTyping" class="text-xs text-gray-500 italic p-2">
         <span x-text="typingUser"></span> is typing...
     </div>
+
+
     <div x-ref="scrollBox" class="flex-1 overflow-y-auto p-4 min-h-0 space-y-4 bg-gray-50">
         <div x-show="isLoading" class="flex justify-center items-center h-full text-gray-400">
             Loading messages...
@@ -15,87 +17,151 @@
             No messages yet. Say hello!
         </div>
 
-        <template x-for="(msg, index) in messages" :key="msg.id">
-            <div class="w-full flex flex-col">
+        {{-- 2. FLOATING CONFIRMATION BAR --}}
+        <div x-show="$store.chatSelection.active" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="translate-y-full opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
+            x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0 opacity-100"
+            x-transition:leave-end="translate-y-full opacity-0"
+            class="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-4">
 
-                <div x-show="isNewDate(index)" class="flex justify-center my-4">
-                    <span x-text="formatDateLabel(msg.created_at)"
-                        class="text-[11px] font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                    </span>
+            <div
+                class="bg-white text-gray-800 shadow-2xl rounded-full px-8 py-3 flex items-center gap-6 border border-gray-100">
+                <span class="text-sm font-medium text-gray-500">
+                    <span x-text="$store.chatSelection.selected.length"
+                        class="text-indigo-600 font-bold text-lg"></span> selected
+                </span>
+
+                {{-- Delete Button --}}
+                <button @click="deleteFromStore()" :disabled="$store.chatSelection.selected.length === 0"
+                    class="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 rounded-full font-medium text-sm transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                </button>
+
+                {{-- Cancel --}}
+                <button @click="$store.chatSelection.toggle()" class="text-gray-400 hover:text-gray-600 text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        {{-- 3. MESSAGE LIST --}}
+        <div class="flex-1 p-4 overflow-y-auto" x-ref="chatContainer">
+
+            {{-- This sits at the very top. When it enters viewport, we load older messages --}}
+            <div x-show="hasMoreMessages" x-intersect:enter="loadMoreMessages()"
+                class="flex justify-center py-4 w-full h-12">
+                <div x-show="isLoading" class="flex items-center gap-2">
+                    {{-- Simple Tailwind Spinner --}}
+                    <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                            stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <span class="text-xs text-gray-500">Loading history...</span>
                 </div>
+            </div>
 
-                <div class="flex w-full mb-2 group"
-                    :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'"
-                    x-intersect.once.threshold.50="handleIntersect(msg.id,msg)">
-                    <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm relative transition-all"
-                        :class="msg.sender_id === currentUserId ?
-                            'bg-indigo-600 text-white rounded-br-none' :
-                            'bg-white text-gray-800 border border-gray-200 rounded-bl-none'">
+            <template x-for="(msg, index) in messages" :key="msg.id">
+                <div class="w-full flex flex-col">
 
-                        <template x-if="msg.media_path">
-                            <div class="mb-2">
-                                <a :href="msg.media_path" target="_blank" class="block">
-                                    <img :src="msg.media_path"
-                                        class="rounded-lg object-cover w-48 h-32 md:w-64 md:h-40 border"
-                                        :class="msg.sender_id === currentUserId ? 'border-indigo-500' : 'border-gray-200'"
-                                        alt="Attachment">
-                                </a>
-                            </div>
-                        </template>
+                    {{-- Date Divider --}}
+                    <div x-show="isNewDate(index)" class="flex justify-center my-4">
+                        <span x-text="formatDateLabel(msg.created_at)"
+                            class="text-[11px] font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                        </span>
+                    </div>
 
-                        <template x-if="msg.message">
-                            <div class="group flex items-center gap-2 relative">
-                                <p x-text="msg.message" class="leading-relaxed"></p>
+                    <div class="flex w-full mb-2 transition-all duration-300"
+                        :class="msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'"
+                        x-intersect.once.threshold.50="handleIntersect(msg.id,msg)">
 
-                                <button @click.stop="deleteMessage(msg.id)"
-                                    class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded-full hover:bg-black/10 text-gray-500 hover:text-red-600 focus:outline-none"
-                                    title="Delete Message">
+                        {{-- CHECKBOX AREA (Slides in) --}}
+                        <div x-show="$store.chatSelection.active" x-transition:enter="transition ease-out duration-300"
+                            x-transition:enter-start="opacity-0 -translate-x-4 w-0"
+                            x-transition:enter-end="opacity-100 translate-x-0 w-8"
+                            class="flex items-center justify-center mr-3 shrink-0 overflow-hidden">
+                            <input type="checkbox" :value="msg.id"
+                                :checked="$store.chatSelection.selected.includes(msg.id)"
+                                @change="$store.chatSelection.toggleItem(msg.id)"
+                                class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        </div>
 
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-                                        viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </template>
-                        {{-- 
-                        <template x-if="msg.message">
-                            <p x-text="msg.message" class="leading-relaxed mr-4"></p>
-                        </template> --}}
+                        {{-- MESSAGE BUBBLE --}}
+                        {{-- Added @click handler and conditional classes for selection --}}
+                        <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm relative transition-all duration-200 border"
+                            @click="$store.chatSelection.toggleItem(msg.id)"
+                            :class="[
+                                msg.sender_id === currentUserId ?
+                                'bg-indigo-600 text-white rounded-br-none border-transparent' :
+                                'bg-white text-gray-800 border-gray-200 rounded-bl-none',
+                                $store.chatSelection.active ? 'cursor-pointer hover:opacity-90' : '',
+                                $store.chatSelection.active && $store.chatSelection.selected.includes(msg.id) ?
+                                'ring-2 ring-indigo-400 ring-offset-2' : ''
+                            ]">
 
-                        <div class="flex items-center justify-end gap-1 mt-1 select-none">
-
-                            <span class="text-[10px] opacity-70" x-text="formatTime(msg.created_at)"></span>
-
-                            <template x-if="msg.sender_id === currentUserId">
-                                <div class="flex items-center">
-                                    <template x-if="msg.read_at">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                            class="w-3.5 h-3.5 text-blue-300">
-                                            <path fill-rule="evenodd"
-                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
-                                                clip-rule="evenodd" />
-                                            <path
-                                                d="M10.958 10.093l.036-.057 4.29-6.435a.75.75 0 011.248.832l-4.29 6.435-1.284-.775z" />
-                                        </svg>
-                                    </template>
-
-                                    <template x-if="!msg.read_at">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                            class="w-3.5 h-3.5 text-gray-300 opacity-70">
-                                            <path fill-rule="evenodd"
-                                                d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
-                                                clip-rule="evenodd" />
-                                        </svg>
-                                    </template>
+                            {{-- Media Attachment --}}
+                            <template x-if="msg.media_path">
+                                <div class="mb-2">
+                                    {{-- Disable link interaction when in selection mode --}}
+                                    <a :href="$store.chatSelection.active ? 'javascript:void(0)' : msg.media_path"
+                                        :target="$store.chatSelection.active ? '' : '_blank'" class="block">
+                                        <img :src="msg.media_path"
+                                            class="rounded-lg object-cover w-48 h-32 md:w-64 md:h-40 border"
+                                            :class="msg.sender_id === currentUserId ? 'border-indigo-500' : 'border-gray-200'"
+                                            alt="Attachment">
+                                    </a>
                                 </div>
                             </template>
+
+                            {{-- Text Message --}}
+                            <template x-if="msg.message">
+                                <div class="flex items-center gap-2 relative">
+                                    <p x-text="msg.message" class="leading-relaxed"></p>
+                                    {{-- OLD DELETE BUTTON REMOVED HERE --}}
+                                </div>
+                            </template>
+
+                            {{-- Time & Read Receipts --}}
+                            <div class="flex items-center justify-end gap-1 mt-1 select-none">
+                                <span class="text-[10px] opacity-70" x-text="formatTime(msg.created_at)"></span>
+
+                                <template x-if="msg.sender_id === currentUserId">
+                                    <div class="flex items-center">
+                                        <template x-if="msg.read_at">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                                fill="currentColor" class="w-3.5 h-3.5 text-blue-300">
+                                                <path fill-rule="evenodd"
+                                                    d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
+                                                    clip-rule="evenodd" />
+                                                <path
+                                                    d="M10.958 10.093l.036-.057 4.29-6.435a.75.75 0 011.248.832l-4.29 6.435-1.284-.775z" />
+                                            </svg>
+                                        </template>
+                                        <template x-if="!msg.read_at">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                                fill="currentColor" class="w-3.5 h-3.5 text-indigo-200 opacity-70">
+                                                <path fill-rule="evenodd"
+                                                    d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+
                         </div>
                     </div>
                 </div>
-            </div>
-        </template>
+            </template>
+        </div>
     </div>
 
     <div class="flex-none p-3 bg-white border-t border-gray-200 z-20">
@@ -118,7 +184,7 @@
         }" class="relative flex items-center">
 
             <!-- HIDDEN FILE INPUT -->
-            <input type="file" accept="image/*" class="hidden" x-ref="fileInput" @change="handleImage">
+            <input type="file" multiple accept="image/*" class="hidden" x-ref="fileInput" @change="handleImage">
 
             <!-- MESSAGE INPUT -->
             <input type="text" x-model="newMessage" @keydown.enter.prevent="sendMessage"
@@ -173,6 +239,8 @@
             readMessages: [],
             timer: null,
             unreadCount: 0,
+            page: 1,
+            hasMoreMessages: true,
 
             // init run every time the conversationId changes when selecting a new user because chat component flushed when conversationId is set to null and re iniatlize when conversationId is set to new value otherwise init called only once when component initializes
             init() {
@@ -200,6 +268,7 @@
             },
 
             handleIntersect(messageId, msg) {
+                console.log('scroll');
                 this.$nextTick(() => {
                     if (!this.isConversationLoading && msg.sender_id !== this.currentUserId && !msg.read_at) {
                         this.markAsRead(messageId, msg.message);
@@ -304,7 +373,9 @@
                         this.$dispatch('set-unreadCount', {
                             unreadCount: this.unreadCount
                         });
-
+                    }).listen('.chat.message.delete', (e) => {
+                        console.log('message delete event received', e);
+                        this.messages = this.messages.filter(m => !e.ids.includes(m.id));
                     }).listenForWhisper('typing', (e) => {
                         this.typingUser = e.name;
                         this.isTyping = true;
@@ -321,20 +392,83 @@
             },
 
             fetchMessages() {
-                this.isConversationLoading = true;
-                // this.scrollToBottom();
-                axios.get(`/chats/${this.conversationId}/messages`)
+                // this.isConversationLoading = true;
+                this.hasMoreMessages = true;
+                const container = this.$refs.chatContainer;
+                const oldScrollHeight = container.scrollHeight;
+                const oldScrollTop = container.scrollTop;
+
+                axios.get(`/chats/${this.conversationId}/messages?page=${this.page}`)
                     .then(response => {
-                        this.messages = response.data.messages || response.data;
-                        this.isLoading = false;
-                        this.scrollToBottom();
-                        this.isConversationLoading = false;
+                        // this.messages = response.data.messages || response.data;
+                        // this.isLoading = false;
+                        // this.scrollToBottom();
+                        // this.isConversationLoading = false;
+
+
+                        if (response.data.messages.length > 0) {
+                            if (this.page == 1) {
+                                this.scrollToBottom();
+                            }
+                            this.messages = [...response.data.messages, ...this.messages];
+                            this.page++;
+                            // 4. Wait for Alpine to render DOM updates
+                            this.$nextTick(() => {
+                                const newScrollHeight = container.scrollHeight;
+                                // We calculate how much height was added and shift the scroll down by that amount
+                                container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
+                                this.isLoading = false;
+                                
+                            });
+                        } else {
+                            this.hasMoreMessages = false;
+                            this.isLoading = false;
+                        }
                     })
                     .catch(error => {
                         console.error(error);
                         this.isLoading = false;
-                        this.isConversationLoading = false;
+                        this.hasMoreMessages = false;
+                        // this.isConversationLoading = false;
                     });
+            },
+            
+            async loadMoreMessages() {
+                if (this.isLoading || !this.hasMoreMessages) return;
+
+                this.isLoading = true;
+
+                // 1. Capture current scroll details BEFORE fetching
+                const container = this.$refs.chatContainer;
+                const oldScrollHeight = container.scrollHeight;
+                const oldScrollTop = container.scrollTop;
+
+                // 2. Fetch older messages (simulated here)
+                // Replace with your actual API call: e.g., `/api/messages?page=${this.page + 1}`
+                // const response = await fetch(`/api/chat/messages?page=${this.page + 1}`);
+                // const data = await response.json();
+                this.fetchMessages()
+
+                // if (data.messages.length > 0) {
+                //     // 3. Prepend new messages to the array
+                //     // Note: We put new messages FIRST in the array
+                //     this.messages = [...data.messages, ...this.messages];
+                //     this.page++;
+
+                //     // 4. Wait for Alpine to render DOM updates
+                //     this.$nextTick(() => {
+                //         const newScrollHeight = container.scrollHeight;
+
+                //         // 5. CRITICAL: Restore scroll position
+                //         // We calculate how much height was added and shift the scroll down by that amount
+                //         container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
+
+                //         this.isLoading = false;
+                //     });
+                // } else {
+                //     this.hasMoreMessages = false;
+                //     this.isLoading = false;
+                // }
             },
 
             sendMessage() {
@@ -442,6 +576,35 @@
                         timer = undefined;
                     }, delay);
                 };
+            },
+            async deleteFromStore() {
+                // Get IDs from the global store
+                const ids = Alpine.store('chatSelection').selected;
+
+                if (!ids.length || !confirm('Delete selected?')) return;
+
+                // ... Perform backend deletion ...
+                const payload = {
+                    'ids': ids,
+                    'conversation_id': this.conversationId,
+                    headers: {
+                        'X-Socket-ID': window.Echo.socketId()
+                    }
+                }
+                axios.post("{{ route('chat.delete') }}", payload)
+                    .then(response => {
+                        console.log(response.data.message);
+                    })
+                    .catch(error => {
+                        console.error("Failed to delete messages as read", error);
+                    });
+
+
+                // Update UI
+                this.messages = this.messages.filter(m => !ids.includes(m.id));
+
+                // RESET THE STORE (This automatically turns off the blue button in the header!)
+                Alpine.store('chatSelection').reset();
             }
         }
     }

@@ -32,7 +32,7 @@ class Chat extends Model
     {
         if ($this->attributes['media_path']) {
             return $this->getImageUrl($this->attributes['media_path']);
-            return Storage::url($this->attributes['media_path']);
+            return Storage::path($this->attributes['media_path']);
         }
         return null;
     }

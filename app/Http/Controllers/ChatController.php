@@ -2,22 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Events\ChatRead;
-use App\Events\SentPrivateMessage;
-use App\Events\UserConversation;
-use App\Models\Chat;
-use App\Models\Conversation;
-use App\Models\ConversationUser;
-use App\Models\User;
+use App\Exceptions\ChatException;
 use App\Services\ChatService;
 use App\Traits\Helper;
-use Carbon\Carbon;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
@@ -29,7 +18,7 @@ class ChatController extends Controller
 
     public function index(): View
     {
-        $users = $this->chatService->getUsersList(Auth::user());
+        $users = $this->chatService->getUsersList(auth()->id());
 
         // dd($users->toArray());
         return view('chat_page', ['users' => $users]);
@@ -38,7 +27,7 @@ class ChatController extends Controller
     public function getFilteredUsersList(Request $request): JsonResponse
     {
         $searchedValue = $request->input('searchTerm', null);
-        $users = $this->chatService->getUsersList(Auth::user(), $searchedValue);
+        $users = $this->chatService->getUsersList(auth()->id(), $searchedValue);
 
         return response()->json(['users' => $users]);
     }
@@ -47,37 +36,29 @@ class ChatController extends Controller
     {
         $validator = Validator::make($request->all(), ['recipient_id' => 'required']);
         if ($validator->fails()) {
-            throw new Exception('invalid selected user');
+            // throw new Exception('invalid selected user');
+            return response()->json(['error' => 'invalid selected user']);
         }
 
-        $currrentUser = $request->user();
-        $conversation = Conversation::whereHas('users', function ($q) use ($currrentUser) {
-            $q->where('users.id', $currrentUser->id);
-        })->whereHas('users', function ($q) use ($request) {
-            $q->where('users.id', $request->recipient_id);
-        })->with('latestMessage')
-            ->first();
-
-        if (! $conversation) {
-            $conversation = Conversation::create(['type' => 'private']);
-            $conversation->users()->attach([$currrentUser->id, $request->recipient_id]);
-            $conversation->load('latestMessage');
-        }
-
+        $currrentUserId = $request->user()->id;
+        $conversation = $this->chatService->createConversationIfNotExists($currrentUserId, $request->recipient_id);
         // $receiver = $conversation->users()->where('users.id', '!=', $currrentUser->id)->get(['users.id', 'users.name']);
 
         return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->media_path ? 'media' : $conversation?->latestMessage?->message ?? null]);
     }
 
-    public function getConversationMessages($conversation_id): JsonResponse
-    {
-        $conversation = Conversation::find($conversation_id);
-        if (! $conversation) {
-            return response()->json(['messages' => []]);
+    public function getConversationMessages(Request $request,$conversation_id): JsonResponse
+    {   
+        try {
+            $messages = $this->chatService->getConversationMessages($conversation_id);
+            // dd( $messages->toArray());
+            return response()->json(['messages' => $messages->items(), 'next_page' => $messages->nextPageUrl()]);
+        } catch (ChatException $e) {
+            return response()->json(['messages' => [], 'error' => $e->getMessage()]);
+        } catch (\Throwable $th) {
+            // dd($th);
+            return response()->json(['messages' => [], 'error' => 'Something went wrong!']);
         }
-        $messages = $conversation->chats()->with('sender')->get();
-
-        return response()->json(['messages' => $messages]);
     }
 
     public function sendConversationMessages(Request $request, string $conversation_id): JsonResponse
@@ -88,89 +69,58 @@ class ChatController extends Controller
         ]);
 
         try {
-            $path = null;
-            if ($request->image) {
-                $path = $this->storeMedia($request->image);
-            }
-
-            $conversation = Conversation::find($conversation_id);
-            if (! $conversation) {
-                return response()->json(['error' => 'Conversation not found'], 404);
-            }
-
-            DB::beginTransaction();
-            $chat = $conversation->chats()->create([
-                'sender_id' => $request->user()->id,
-                'message' => $request->body,
-                'media_path' => $path,
-            ]);
-            DB::commit();
-
-            $chat->load('sender');
-
-            // Broadcast the message to the conversation channel
-            broadcast(new SentPrivateMessage($chat));
-
-            $data = $this->chatService->getUpdatedUserConversation($conversation_id);
-            broadcast(new UserConversation($request->selectedUserId, $data));
-
+            $chat = $this->chatService->sendMessage($request, $conversation_id);
             return response()->json($chat);
+        } catch (ChatException $e) {
+            return response()->json(['messages' => [], 'error' => $e->getMessage()]);
         } catch (\Throwable $th) {
-            // throw $th;
-            DB::rollBack();
-            $path ? unlink($path) : null;
-            dd($th);
-
-            return response()->json(status: 500);
+            // dd($th);
+            return response()->json(['error' => 'something went wrong'], status: 500);
         }
     }
 
     public function markChatAsRead(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'messages.*.messageId' => 'required|integer|exists:chats,id',
-            'messages.*.read_at' => 'required|date',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'messages.*.messageId' => 'required|integer|exists:chats,id',
+                'messages.*.read_at' => 'required|date',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
-        }
-
-        foreach ($request['messages'] as $message) {
-            $chat = Chat::find($message['messageId']);
-            Log::info('Marking chat as read: '.$chat->id.' at '.$message['read_at']);
-            if ($chat) {
-                $chat->read_at = Carbon::parse($message['read_at']);
-                $chat->save();
-                broadcast(new ChatRead($chat))->toOthers();
+            if ($validator->fails()) {
+                return response()->json(['error' => $validator->errors()], 400);
             }
+            $this->chatService->markChatAsRead($request);
+            return response()->json(['success' => true]);
+        } catch (ChatException $e) {
+            return response()->json(['messages' => [], 'error' => $e->getMessage()]);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => 'something went wrong'], status: 500);
         }
-
-        return response()->json(['success' => true]);
     }
 
     public function getUserForNewConversation()
     {
-        $conversationIds = ConversationUser::where('user_id', auth()->id())->pluck('conversation_id');
-        $userIds = ConversationUser::whereNot('user_id', auth()->id())->whereIn('conversation_id', $conversationIds)->pluck('user_id');
+        try {
+            $users = $this->chatService->getUserForNewConversation(auth()->id());
+            return response()->json(['users' => $users]);
+        } catch (\Throwable $th) {
+            // dd($th);
+            return response()->json(['error' => 'something went wrong'], status: 500);
+        }
+    }
 
-        // dd( $userIds->toRawSql());
-
-        $users = User::isCustomer()
-            ->whereNot('id', auth()->id())
-            ->whereNotIn('id', $userIds)
-            ->get(['id', 'name']);
-
-        return response()->json(['users' => $users]);
-        dd($conversationIds, $userIds);
+    public function deleteMultipleChats(Request $request)
+    {
+        $request->validate([
+            'conversation_id' => ['required', 'exists:conversations,id'],
+            'ids.*' => ['required', 'exists:chats,id']
+        ]);
+        try {
+            $this->chatService->deleteChats($request->conversation_id, $request->ids);
+            return response()->json(['message' => 'Chats deleted successfully']);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => 'something went wrong'], status: 500);
+        }
     }
 }
-
-// $user = User::isCustomer()
-//     ->whereNot('users.id', auth()->user()->id)
-//     ->join('chats', 'chats.sender_id', '=', 'users.id')
-//     ->where('chats.sender_id', '!=', auth()->id())
-//     ->whereIn('chats.conversation_id', $conversationIds)
-//     ->select('users.*')
-//     ->groupBy('chats.conversation_id')
-//     ->toRawSql();

@@ -38,7 +38,9 @@ Route::middleware('auth:web')->group(function () {
     Route::post('/chats/messages/read', [ChatController::class, 'markChatAsRead'])->name('chat.mark.read');
     Route::get('/chats/users/filter', [ChatController::class, 'getFilteredUsersList'])->name('chat.users.filter');
     Route::get('/chats/users', [ChatController::class, 'getUserForNewConversation'])->name('chat.users');
+    Route::post('/chats/delete', [ChatController::class, 'deleteMultipleChats'])->name('chat.delete');
 
+    
     // Notifications
     Route::delete('/notifications/{id}', function ($id) {
         auth()->user()->notifications()->find($id)->markAsRead();

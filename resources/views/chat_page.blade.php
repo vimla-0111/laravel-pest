@@ -120,10 +120,22 @@
         <div class="w-3/4 flex flex-col">
             <template x-if="selectedUserId">
                 <div class="flex flex-col h-full">
-                    <div class="p-4 border-b bg-white flex items-center">
+                    <div class="p-4 border-b bg-white flex items-center justify-between">
                         <h3 class="text-lg font-semibold"
-                            x-text="users.find(u => u.id === selectedUserId)?.name || 'Loading...'">
-                        </h3>
+                            x-text="users.find(u => u.id === selectedUserId)?.name || 'Loading...'"></h3>
+
+                        <button @click="$store.chatSelection.toggle()"
+                            class="p-2 rounded-full shadow-md border border-gray-200 transition"
+                            :class="$store.chatSelection.active ? 'bg-indigo-50 text-indigo-600 ring-2 ring-indigo-500' :
+                                'bg-white text-gray-600 hover:text-indigo-600'"
+                            title="Select Messages">
+
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
                     </div>
 
                     <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -333,9 +345,38 @@
                     handleNewChat(e) {
                         console.log("User selected from modal:", e.detail.user.id, e.detail.user.name);
                         this.selectUser(e.detail.user.id, e.detail
-                        .user); // Reuse your existing logic to open the chat
+                            .user); // Reuse your existing logic to open the chat
                     },
                 }));
+
+
+                Alpine.store('chatSelection', {
+                    active: false, // equivalent to selectionMode
+                    selected: [], // equivalent to selectedMessages
+
+                    // Toggle the mode on/off
+                    toggle() {
+                        console.log(this.selected, this.active);
+                        this.active = !this.active;
+                        if (!this.active) this.selected = []; // Clear items if turning off
+                        
+                    },
+
+                    // Add or remove an ID
+                    toggleItem(id) {
+                        if (this.selected.includes(id)) {
+                            this.selected = this.selected.filter(item => item !== id);
+                        } else {
+                            this.selected.push(id);
+                        }
+                    },
+
+                    // Reset everything (e.g., after delete)
+                    reset() {
+                        this.active = false;
+                        this.selected = [];
+                    }
+                });
 
             });
         </script>
