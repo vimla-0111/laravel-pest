@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Repositories\Interfaces\ChatRepositoryInterface;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Log;
 
@@ -42,6 +43,15 @@ class ChatRepository implements ChatRepositoryInterface
         return $conversation->chats()
             ->with('sender')
             ->get();
+    }
+
+     public function getConversationMessagesByPagination(Conversation $conversation): LengthAwarePaginator
+    {
+        return $conversation->chats()
+            ->with('sender')
+            ->latest()
+            // ->oldest('created_at')
+            ->paginate(10);
     }
 
     public function getChatStats(string $conversationId): array
@@ -90,12 +100,30 @@ class ChatRepository implements ChatRepositoryInterface
         return ConversationUser::whereNot('user_id', $currentUserId)->whereIn('conversation_id', $conversationIds)->pluck('user_id');
     }
 
-    public function chunkChatsForDeletion(int $conversationId, array $ids, callable $callback)
+    public function chunkChatsForDeletion(int $conversationId, array $ids, callable $callback) : void
     {
         Chat::where('conversation_id', $conversationId)
             ->whereIn('id', $ids)
             ->chunkById(50, function ($chats) use ($callback) {
                 $callback($chats);
             });
+    }
+
+    public function findConversationByUsers(int $currrentUserId, int $recipientId): Conversation
+    {
+        return Conversation::whereHas('users', function ($q) use ($currrentUserId) {
+            $q->where('users.id', $currrentUserId);
+        })->whereHas('users', function ($q) use ($recipientId) {
+            $q->where('users.id', $recipientId);
+        })->with('latestMessage')
+            ->first();
+    }
+
+    public function createUsersConversation(int $currrentUserId, int $recipientId): Conversation
+    {
+        $conversation = Conversation::create(['type' => 'private']);
+        $conversation->users()->attach([$currrentUserId, $recipientId]);
+        $conversation->load('latestMessage');
+        return $conversation;
     }
 }

@@ -23,4 +23,22 @@ class UserRepository implements UserRepositoryInterface
             ->whereNotIn('id', $userIds)
             ->get(['id', 'name']);
     }
+
+    public function getConversationsUser( int $currentUserId, array $conversationIds, ?string $searchedValue) :Collection
+    {
+        return  User::isCustomer()
+            ->whereLike('name', '%' . $searchedValue . '%')
+            ->whereNot('id', $currentUserId)
+            ->withWhereHas(
+                'conversations',
+                function ($q) use ($conversationIds) {
+                    return $q->whereIn('conversations.id', $conversationIds)
+                        ->with('latestMessage');
+                }
+            )
+            ->withCount(['chats as unread_message_count' => function ($q) use ($conversationIds, $currentUserId) {
+                return $q->where('sender_id', '!=', $currentUserId)->whereIn('conversation_id', $conversationIds)->whereNull('read_at');
+            }])
+            ->get();
+    }
 }

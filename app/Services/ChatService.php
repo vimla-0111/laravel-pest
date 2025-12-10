@@ -2,19 +2,18 @@
 
 namespace App\Services;
 
+use App\Events\ChatDeleted;
 use App\Events\ChatRead;
 use App\Events\SentPrivateMessage;
 use App\Events\UserConversation;
-use App\Exceptions\ChatException;
-use App\Models\Chat;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Repositories\Interfaces\ChatRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Traits\Helper;
-use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -35,33 +34,15 @@ class ChatService
         return $stats;
     }
 
-    public function getUsersList(User $user, mixed $searchedValue = null): Collection
+    public function getUsersList(int $currrentUserId, mixed $searchedValue = null): Collection
     {
-        $conversationIds = $user->conversations()->pluck('conversations.id');
-
-        $users = User::isCustomer()
-            ->whereLike('name', '%' . $searchedValue . '%')
-            ->whereNot('id', auth()->user()->id)
-            ->withWhereHas(
-                'conversations',
-                function ($q) use ($conversationIds) {
-                    return $q->whereIn('conversations.id', $conversationIds)
-                        ->with('latestMessage');
-                }
-            )
-            ->withCount(['chats as unread_message_count' => function ($q) use ($conversationIds) {
-                return $q->where('sender_id', '!=', auth()->id())->whereIn('conversation_id', $conversationIds)->whereNull('read_at');
-            }])
-            // ->select(['id','name','unread_message_count'])
-            ->get(['id', 'name', 'unread_message_count'])
-            ->map(function ($user) {
-                $convo = $user->conversations->first();
-                $user->last_message = $convo?->latestMessage?->media_path ? 'media' : $convo?->latestMessage?->message ?? null;
-                $user->date = $convo?->latestMessage?->created_at;
-
-                // $user->unread_message_count = 0;
-                return $user;
-            });
+        $conversationIds = $this->repository->getConversationIdsOfCurrentUser($currrentUserId);
+        $users = $this->userRepository->getConversationsUser($currrentUserId, $conversationIds->toArray(), $searchedValue)->map(function ($user) {
+            $convo = $user->conversations->first();
+            $user->last_message = $convo?->latestMessage?->media_path ? 'media' : $convo?->latestMessage?->message ?? null;
+            $user->date = $convo?->latestMessage?->created_at;
+            return $user;
+        });
 
         $users = $users->sortByDesc('date');
         $users = $users->values();
@@ -69,30 +50,25 @@ class ChatService
         return $users;
     }
 
-    public function createConversationIfNotExists($currrentUser, $recipientId): Conversation
+    public function createConversationIfNotExists($currrentUserId, $recipientId): Conversation
     {
-
-        $conversation = Conversation::whereHas('users', function ($q) use ($currrentUser) {
-            $q->where('users.id', $currrentUser->id);
-        })->whereHas('users', function ($q) use ($recipientId) {
-            $q->where('users.id', $recipientId);
-        })->with('latestMessage')
-            ->first();
+        $conversation = $this->repository->findConversationByUsers($currrentUserId, $recipientId);
 
         if (! $conversation) {
-            $conversation = Conversation::create(['type' => 'private']);
-            $conversation->users()->attach([$currrentUser->id, $recipientId]);
-            $conversation->load('latestMessage');
+            $conversation =  $this->repository->createUsersConversation($currrentUserId, $recipientId);
         }
 
         return $conversation;
     }
 
-    public function getConversationMessages(int $conversationId): Collection
+    public function getConversationMessages(int $conversationId): LengthAwarePaginator
     {
         $conversation = $this->repository->getConversationById($conversationId);
+        $messages =  $this->repository->getConversationMessagesByPagination($conversation);
+        $chronologicalMessages = $messages->getCollection()->reverse()->values();
 
-        return $this->repository->getConversationMessages($conversation);
+        $messages->setCollection($chronologicalMessages);
+        return  $messages;
     }
 
     public function sendMessage(Request $chatRequest, $conversationId)
@@ -162,5 +138,24 @@ class ChatService
                 }
             }
         );
+    }
+
+    public function deleteChats(int $conversationId, array $chatIds): void
+    {
+        try {
+            Log::info('delete chat event start');
+            broadcast(new ChatDeleted($chatIds, $conversationId))->toOthers();
+        } catch (\Throwable $th) {
+            Log::info('error during broadcast chat delete event');
+            Log::info($th);
+        }
+
+        try {
+            DB::transaction(function () use ($conversationId, $chatIds) {
+                $this->deleteChatsWithMedia($conversationId, $chatIds);
+            });
+        } catch (\Throwable $th) {
+            throw $th;
+        }
     }
 }

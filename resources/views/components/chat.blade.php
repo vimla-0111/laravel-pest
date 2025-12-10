@@ -50,7 +50,25 @@
         </div>
 
         {{-- 3. MESSAGE LIST --}}
-        <div class="flex-1 p-4 pb-24 overflow-y-auto">
+        <div class="flex-1 p-4 overflow-y-auto" x-ref="chatContainer">
+
+            {{-- This sits at the very top. When it enters viewport, we load older messages --}}
+            <div x-show="hasMoreMessages" x-intersect:enter="loadMoreMessages()"
+                class="flex justify-center py-4 w-full h-12">
+                <div x-show="isLoading" class="flex items-center gap-2">
+                    {{-- Simple Tailwind Spinner --}}
+                    <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                            stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <span class="text-xs text-gray-500">Loading history...</span>
+                </div>
+            </div>
+
             <template x-for="(msg, index) in messages" :key="msg.id">
                 <div class="w-full flex flex-col">
 
@@ -221,6 +239,8 @@
             readMessages: [],
             timer: null,
             unreadCount: 0,
+            page: 1,
+            hasMoreMessages: true,
 
             // init run every time the conversationId changes when selecting a new user because chat component flushed when conversationId is set to null and re iniatlize when conversationId is set to new value otherwise init called only once when component initializes
             init() {
@@ -248,6 +268,7 @@
             },
 
             handleIntersect(messageId, msg) {
+                console.log('scroll');
                 this.$nextTick(() => {
                     if (!this.isConversationLoading && msg.sender_id !== this.currentUserId && !msg.read_at) {
                         this.markAsRead(messageId, msg.message);
@@ -371,20 +392,83 @@
             },
 
             fetchMessages() {
-                this.isConversationLoading = true;
-                // this.scrollToBottom();
-                axios.get(`/chats/${this.conversationId}/messages`)
+                // this.isConversationLoading = true;
+                this.hasMoreMessages = true;
+                const container = this.$refs.chatContainer;
+                const oldScrollHeight = container.scrollHeight;
+                const oldScrollTop = container.scrollTop;
+
+                axios.get(`/chats/${this.conversationId}/messages?page=${this.page}`)
                     .then(response => {
-                        this.messages = response.data.messages || response.data;
-                        this.isLoading = false;
-                        this.scrollToBottom();
-                        this.isConversationLoading = false;
+                        // this.messages = response.data.messages || response.data;
+                        // this.isLoading = false;
+                        // this.scrollToBottom();
+                        // this.isConversationLoading = false;
+
+
+                        if (response.data.messages.length > 0) {
+                            if (this.page == 1) {
+                                this.scrollToBottom();
+                            }
+                            this.messages = [...response.data.messages, ...this.messages];
+                            this.page++;
+                            // 4. Wait for Alpine to render DOM updates
+                            this.$nextTick(() => {
+                                const newScrollHeight = container.scrollHeight;
+                                // We calculate how much height was added and shift the scroll down by that amount
+                                container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
+                                this.isLoading = false;
+                                
+                            });
+                        } else {
+                            this.hasMoreMessages = false;
+                            this.isLoading = false;
+                        }
                     })
                     .catch(error => {
                         console.error(error);
                         this.isLoading = false;
-                        this.isConversationLoading = false;
+                        this.hasMoreMessages = false;
+                        // this.isConversationLoading = false;
                     });
+            },
+            
+            async loadMoreMessages() {
+                if (this.isLoading || !this.hasMoreMessages) return;
+
+                this.isLoading = true;
+
+                // 1. Capture current scroll details BEFORE fetching
+                const container = this.$refs.chatContainer;
+                const oldScrollHeight = container.scrollHeight;
+                const oldScrollTop = container.scrollTop;
+
+                // 2. Fetch older messages (simulated here)
+                // Replace with your actual API call: e.g., `/api/messages?page=${this.page + 1}`
+                // const response = await fetch(`/api/chat/messages?page=${this.page + 1}`);
+                // const data = await response.json();
+                this.fetchMessages()
+
+                // if (data.messages.length > 0) {
+                //     // 3. Prepend new messages to the array
+                //     // Note: We put new messages FIRST in the array
+                //     this.messages = [...data.messages, ...this.messages];
+                //     this.page++;
+
+                //     // 4. Wait for Alpine to render DOM updates
+                //     this.$nextTick(() => {
+                //         const newScrollHeight = container.scrollHeight;
+
+                //         // 5. CRITICAL: Restore scroll position
+                //         // We calculate how much height was added and shift the scroll down by that amount
+                //         container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
+
+                //         this.isLoading = false;
+                //     });
+                // } else {
+                //     this.hasMoreMessages = false;
+                //     this.isLoading = false;
+                // }
             },
 
             sendMessage() {
