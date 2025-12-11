@@ -97,6 +97,7 @@ class ChatService
         } catch (\Throwable $th) {
             DB::rollBack();
             $this->deleteMedia($path);
+            // dd($th);
             throw $th;
         }
     }
@@ -142,13 +143,8 @@ class ChatService
 
     public function deleteChats(int $conversationId, array $chatIds): void
     {
-        try {
-            Log::info('delete chat event start');
-            broadcast(new ChatDeleted($chatIds, $conversationId))->toOthers();
-        } catch (\Throwable $th) {
-            Log::info('error during broadcast chat delete event');
-            Log::info($th);
-        }
+        Log::info('delete chat event start');
+        broadcast(new ChatDeleted($chatIds, $conversationId))->toOthers();
 
         try {
             DB::transaction(function () use ($conversationId, $chatIds) {
