@@ -47,17 +47,14 @@ class ChatController extends Controller
         return response()->json(['conversation_id' => $conversation->id, 'latest_message' => $conversation?->latestMessage?->media_path ? 'media' : $conversation?->latestMessage?->message ?? null]);
     }
 
-    public function getConversationMessages(Request $request,$conversation_id): JsonResponse
-    {   
+    public function getConversationMessages(Request $request, $conversation_id): JsonResponse
+    {
         try {
             $messages = $this->chatService->getConversationMessages($conversation_id);
             // dd( $messages->toArray());
             return response()->json(['messages' => $messages->items(), 'next_page' => $messages->nextPageUrl()]);
         } catch (ChatException $e) {
             return response()->json(['messages' => [], 'error' => $e->getMessage()]);
-        } catch (\Throwable $th) {
-            // dd($th);
-            return response()->json(['messages' => [], 'error' => 'Something went wrong!']);
         }
     }
 
@@ -73,9 +70,6 @@ class ChatController extends Controller
             return response()->json($chat);
         } catch (ChatException $e) {
             return response()->json(['messages' => [], 'error' => $e->getMessage()]);
-        } catch (\Throwable $th) {
-            // dd($th);
-            return response()->json(['error' => 'something went wrong'], status: 500);
         }
     }
 
@@ -94,20 +88,13 @@ class ChatController extends Controller
             return response()->json(['success' => true]);
         } catch (ChatException $e) {
             return response()->json(['messages' => [], 'error' => $e->getMessage()]);
-        } catch (\Throwable $th) {
-            return response()->json(['error' => 'something went wrong'], status: 500);
         }
     }
 
     public function getUserForNewConversation()
     {
-        try {
-            $users = $this->chatService->getUserForNewConversation(auth()->id());
-            return response()->json(['users' => $users]);
-        } catch (\Throwable $th) {
-            // dd($th);
-            return response()->json(['error' => 'something went wrong'], status: 500);
-        }
+        $users = $this->chatService->getUserForNewConversation(auth()->id());
+        return response()->json(['users' => $users]);
     }
 
     public function deleteMultipleChats(Request $request)
@@ -116,11 +103,7 @@ class ChatController extends Controller
             'conversation_id' => ['required', 'exists:conversations,id'],
             'ids.*' => ['required', 'exists:chats,id']
         ]);
-        try {
-            $this->chatService->deleteChats($request->conversation_id, $request->ids);
-            return response()->json(['message' => 'Chats deleted successfully']);
-        } catch (\Throwable $th) {
-            return response()->json(['error' => 'something went wrong'], status: 500);
-        }
+        $this->chatService->deleteChats($request->conversation_id, $request->ids);
+        return response()->json(['message' => 'Chats deleted successfully']);
     }
 }
