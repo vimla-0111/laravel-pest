@@ -49,6 +49,14 @@ Route::middleware('auth:web')->group(function () {
     });
 });
 
+
+// booking plungin integration demo
+Route::view('/day-schedule','day-shedule');
+Route::view('/cal-schedule','cal');
+
+Route::post('/booking-webhook-callback',function () {
+    info('web hook called');
+});
 // // Public routes (anyone can see)
 // Route::get('/posts', [PostController::class, 'index'])->name('post.index');
 // Route::get('/posts/{post}', [PostController::class, 'show'])->name('post.show');
