@@ -41,6 +41,18 @@ class Post extends Model
     }
 
     /**
+     * Clear any cached post listings for a given user.
+     *
+     * We cache paginated results using Redis tags "posts" and "user:{id}".
+     * This helper is convenient for controllers or services to call after
+     * changing a user's collection of posts.
+     */
+    public static function flushCacheForUser(int $userId): void
+    {
+        cache()->tags(['posts', "user:{$userId}"])->flush();
+    }
+
+    /**
      * Retrieve the model for a bound value.
      *
      * @param  mixed  $value

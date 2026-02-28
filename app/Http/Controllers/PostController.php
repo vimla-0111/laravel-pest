@@ -20,11 +20,17 @@ class PostController extends Controller
      */
     public function index(): View
     {
-        $posts = Post::createdBy(auth()->id())->latest()->paginate(10)->through(function ($post) {
-            $post->append('formatted_published_at');
-            return $post;
+        $userId = auth()->id();
+        $page = request()->get('page', 1);
+
+        // cache the paginated posts for this user/page combination using Redis tags
+        $posts = cache()->tags(['posts', "user:{$userId}"])->remember("page:{$page}", now()->addMinutes(10), function () use ($userId) {
+            return Post::createdBy($userId)->latest()->paginate(10)->through(function ($post) {
+                $post->append('formatted_published_at');
+                return $post;
+            });
         });
-        // dd($posts);
+
         return view('posts.index', compact('posts'));
     }
 
@@ -44,6 +50,9 @@ class PostController extends Controller
         info('storing the post');
         // Create the post and link it to the authenticated user
         $post = $postService->createPost(auth()->user(), $request->validated());
+
+        // clearing cached post listings for the author so new post shows up immediately
+        Post::flushCacheForUser(auth()->id());
 
         $users = User::whereNot('id', auth()->id())->get();
         Notification::send($users, new NewPost($post)); // send notifications to all users except the creator
@@ -80,6 +89,8 @@ class PostController extends Controller
 
         $post->update($request->validated());
 
+        Post::flushCacheForUser(auth()->id());
+
         return redirect()->route('posts.index')
             ->with('success', 'Post updated successfully!');
     }
@@ -94,6 +105,7 @@ class PostController extends Controller
 
         $post->delete();
 
+        Post::flushCacheForUser(auth()->id());
         return redirect()->route('posts.index')
             ->with('success', 'Post deleted successfully!');
     }
