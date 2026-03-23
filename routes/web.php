@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DocumentEditorController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PostController;
@@ -40,7 +41,10 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/chats/users', [ChatController::class, 'getUserForNewConversation'])->name('chat.users');
     Route::post('/chats/delete', [ChatController::class, 'deleteMultipleChats'])->name('chat.delete');
 
-    
+    Route::get('/documents/edit/{path}', [DocumentEditorController::class, 'edit'])
+        ->where('path', '.*')
+        ->name('documents.edit');
+
     // Notifications
     Route::delete('/notifications/{id}', function ($id) {
         auth()->user()->notifications()->find($id)->markAsRead();
@@ -49,12 +53,20 @@ Route::middleware('auth:web')->group(function () {
     });
 });
 
+Route::get('/documents/files/{path}', [DocumentEditorController::class, 'file'])
+    ->where('path', '.*')
+    ->name('documents.file');
+
+Route::post('/documents/callback/{path}', [DocumentEditorController::class, 'callback'])
+    ->where('path', '.*')
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+    ->name('documents.callback');
 
 // booking plungin integration demo
-Route::view('/day-schedule','day-shedule');
-Route::view('/cal-schedule','cal');
+Route::view('/day-schedule', 'day-shedule');
+Route::view('/cal-schedule', 'cal');
 
-Route::post('/booking-webhook-callback',function () {
+Route::post('/booking-webhook-callback', function () {
     info('web hook called');
 });
 // // Public routes (anyone can see)
