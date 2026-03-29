@@ -7,17 +7,23 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Laravel\Scout\Searchable;
 
 class Post extends Model
 {
-    use HasFactory;
+    use HasFactory, Searchable;
 
     protected $fillable = [
         'title',
         'content',
         'created_by',
         'published_at',
-        'status'
+        'status',
+    ];
+
+    protected $casts = [
+        'published_at' => 'datetime',
+        'created_at' => 'datetime',
     ];
 
     public function creator(): BelongsTo
@@ -27,7 +33,9 @@ class Post extends Model
 
     public function formattedPublishedAt(): Attribute
     {
-        return new Attribute(get: fn() => $this->published_at ? date_create($this->published_at)->format('d/m/Y') : null);
+        return Attribute::make(
+            get: fn () => $this->published_at?->format('d/m/Y')
+        );
     }
 
     public function scopePublished($query): Builder
@@ -50,6 +58,33 @@ class Post extends Model
     public static function flushCacheForUser(int $userId): void
     {
         cache()->tags(['posts', "user:{$userId}"])->flush();
+    }
+
+    public function searchableAs(): string
+    {
+        return 'posts';
+    }
+
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (string) $this->id,
+            'title' => (string) $this->title,
+            'content' => (string) $this->content,
+            'created_by' => (int) $this->created_by,
+            'published_at' => $this->published_at?->timestamp,
+            'created_at' => $this->created_at?->timestamp ?? now()->timestamp,
+        ];
+    }
+
+    public function shouldBeSearchable(): bool
+    {
+        return $this->published_at !== null;
+    }
+
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query->published();
     }
 
     /**
