@@ -56,38 +56,46 @@ class ChatRepository implements ChatRepositoryInterface
 
     public function getChatStats(string $conversationId): array
     {
+        // cache stats for a short period since they are read frequently
+        return cache()->store('redis')->remember("chat_stats:{$conversationId}", now()->addMinutes(5), function () use ($conversationId) {
+            $chat = Chat::where('conversation_id', $conversationId);
 
-        $chat = Chat::where('conversation_id', $conversationId);
+            if ($chat) {
+                $unReadCount = $chat->whereNull('read_at')->count();
+                $latestMessage = $chat->orderByDesc('created_at')->limit(1)->value('message');
+            } else {
+                $unReadCount = 0;
+                $latestMessage = null;
+            }
 
-        if ($chat) {
-            $unReadCount = $chat->whereNull('read_at')->count();
-            $latestMessage = $chat->orderByDesc('created_at')->limit(1)->value('message');
-        } else {
-            $unReadCount = 0;
-            $latestMessage = null;
-        }
-
-        $data = [
-            'unReadCount' => $unReadCount,
-            'latestMessage' => $latestMessage,
-        ];
-
-        return $data;
+            return [
+                'unReadCount' => $unReadCount,
+                'latestMessage' => $latestMessage,
+            ];
+        });
     }
 
     public function createChat(Conversation $conversation, $chatRequest, ?string $path): Chat
     {
-        return $conversation->chats()->create([
+        $chat = $conversation->chats()->create([
             'sender_id' => $chatRequest->user()->id,
             'message' => $chatRequest->body,
             'media_path' => $path,
         ]);
+
+        // flush stats cache so next call will recalc
+        cache()->store('redis')->forget("chat_stats:{$conversation->id}");
+
+        return $chat;
     }
 
     public function updateChatReadAt(Chat $chat, string $readAt): void
     {
         $chat->read_at = Carbon::parse($readAt);
         $chat->save();
+
+        // stats change so clear the cache for this conversation
+        cache()->store('redis')->forget("chat_stats:{$chat->conversation_id}");
     }
 
     public function getConversationIdsOfCurrentUser(int $currentUserId): SupportCollection
@@ -109,7 +117,7 @@ class ChatRepository implements ChatRepositoryInterface
             });
     }
 
-    public function findConversationByUsers(int $currrentUserId, int $recipientId): Conversation
+    public function findConversationByUsers(int $currrentUserId, int $recipientId): ?Conversation
     {
         return Conversation::whereHas('users', function ($q) use ($currrentUserId) {
             $q->where('users.id', $currrentUserId);

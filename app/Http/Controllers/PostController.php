@@ -9,8 +9,8 @@ use App\Models\User;
 use App\Notifications\NewPost;
 use App\Services\PostService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\View\View;
 
 class PostController extends Controller
@@ -20,11 +20,33 @@ class PostController extends Controller
      */
     public function index(): View
     {
-        $posts = Post::createdBy(auth()->id())->latest()->paginate(10)->through(function ($post) {
-            $post->append('formatted_published_at');
-            return $post;
+        $userId = auth()->id();
+        $page = request()->get('page', 1);
+
+        $startTime = microtime(true);
+        $cacheKey = "page:{$page}";
+        $tags = ['posts', "user:{$userId}"];
+
+        // Check if value exists in cache (before remember call)
+        $cachedValue = cache()->tags($tags)->get($cacheKey);
+        $isCacheHit = $cachedValue !== null;
+
+        // cache the paginated posts for this user/page combination using Redis tags
+        $posts = cache()->tags($tags)->remember($cacheKey, now()->addMinutes(10), function () use ($userId) {
+            return Post::createdBy($userId)->latest()->paginate(10)->through(function ($post) {
+                $post->append('formatted_published_at');
+
+                return $post;
+            });
         });
-        // dd($posts);
+
+        $endTime = microtime(true);
+        $executionTime = ($endTime - $startTime) * 1000; // Convert to milliseconds
+
+        // Log execution metrics
+        $cacheStatus = $isCacheHit ? 'CACHE HIT' : 'CACHE MISS (DB Query)';
+        info("⏱️  PostController::index() - User: {$userId}, Page: {$page}, Status: {$cacheStatus}, Time: {$executionTime}ms");
+
         return view('posts.index', compact('posts'));
     }
 
@@ -45,6 +67,9 @@ class PostController extends Controller
         // Create the post and link it to the authenticated user
         $post = $postService->createPost(auth()->user(), $request->validated());
 
+        // clearing cached post listings for the author so new post shows up immediately
+        Post::flushCacheForUser(auth()->id());
+
         $users = User::whereNot('id', auth()->id())->get();
         Notification::send($users, new NewPost($post)); // send notifications to all users except the creator
 
@@ -59,6 +84,7 @@ class PostController extends Controller
     {
         $post = Post::published()->with('creator')->findOrFail($post->id);
         $post->append('formatted_published_at');
+
         return view('posts.show', compact('post'));
     }
 
@@ -80,6 +106,8 @@ class PostController extends Controller
 
         $post->update($request->validated());
 
+        Post::flushCacheForUser(auth()->id());
+
         return redirect()->route('posts.index')
             ->with('success', 'Post updated successfully!');
     }
@@ -93,6 +121,8 @@ class PostController extends Controller
         Gate::authorize('delete', $post);
 
         $post->delete();
+
+        Post::flushCacheForUser(auth()->id());
 
         return redirect()->route('posts.index')
             ->with('success', 'Post deleted successfully!');

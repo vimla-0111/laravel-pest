@@ -28,7 +28,7 @@ interface ChatRepositoryInterface
 
     public function chunkChatsForDeletion(int $conversationId, array $ids, callable $callback): void;
 
-    public function findConversationByUsers(int $currrentUserId, int $recipientId): Conversation;
+    public function findConversationByUsers(int $currrentUserId, int $recipientId): ?Conversation;
 
     public function createUsersConversation(int $currrentUserId, int $recipientId): Conversation;
 
