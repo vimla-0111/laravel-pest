@@ -9,8 +9,8 @@ use App\Models\User;
 use App\Notifications\NewPost;
 use App\Services\PostService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\View\View;
 
 class PostController extends Controller
@@ -23,13 +23,29 @@ class PostController extends Controller
         $userId = auth()->id();
         $page = request()->get('page', 1);
 
+        $startTime = microtime(true);
+        $cacheKey = "page:{$page}";
+        $tags = ['posts', "user:{$userId}"];
+
+        // Check if value exists in cache (before remember call)
+        $cachedValue = cache()->tags($tags)->get($cacheKey);
+        $isCacheHit = $cachedValue !== null;
+
         // cache the paginated posts for this user/page combination using Redis tags
-        $posts = cache()->tags(['posts', "user:{$userId}"])->remember("page:{$page}", now()->addMinutes(10), function () use ($userId) {
+        $posts = cache()->tags($tags)->remember($cacheKey, now()->addMinutes(10), function () use ($userId) {
             return Post::createdBy($userId)->latest()->paginate(10)->through(function ($post) {
                 $post->append('formatted_published_at');
+
                 return $post;
             });
         });
+
+        $endTime = microtime(true);
+        $executionTime = ($endTime - $startTime) * 1000; // Convert to milliseconds
+
+        // Log execution metrics
+        $cacheStatus = $isCacheHit ? 'CACHE HIT' : 'CACHE MISS (DB Query)';
+        info("⏱️  PostController::index() - User: {$userId}, Page: {$page}, Status: {$cacheStatus}, Time: {$executionTime}ms");
 
         return view('posts.index', compact('posts'));
     }
@@ -68,6 +84,7 @@ class PostController extends Controller
     {
         $post = Post::published()->with('creator')->findOrFail($post->id);
         $post->append('formatted_published_at');
+
         return view('posts.show', compact('post'));
     }
 
@@ -106,6 +123,7 @@ class PostController extends Controller
         $post->delete();
 
         Post::flushCacheForUser(auth()->id());
+
         return redirect()->route('posts.index')
             ->with('success', 'Post deleted successfully!');
     }
